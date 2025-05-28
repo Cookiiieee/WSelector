@@ -135,7 +135,7 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 
 - [Wallhaven.cc](https://wallhaven.cc) for their amazing wallpaper collection.
 
-🚧 Work in Progress
+## 🚧 Work in Progress
 ### App Memory Management (WIP)
 The application is currently being enhanced with an advanced memory management system (`app_memory`) that will provide:
 - Automatic memory usage optimization
