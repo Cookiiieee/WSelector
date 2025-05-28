@@ -146,6 +146,4 @@ The application is currently being enhanced with an advanced memory management s
 
 This feature is currently under active development and will be included in an upcoming release.
 
-
 [![Buy Me A Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=☕&slug=cookiiieee&button_colour=5F7FFF&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00&font_size=14&height=28&width=150)](https://www.buymeacoffee.com/cookiiieee)
-
