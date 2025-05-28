@@ -13,13 +13,13 @@
 - Smooth infinite scrolling for seamless browsing
 - Search functionality with debounce mechanism
 - Filter by categories (General, Anime, People)
-- Set purity levels (SFW, Sketchy, NSFW)
-- Sort by latest, relevance, random
+- Set purity levels (SFW, Sketchy)
+- Sort by latest, popular, random
 - Drag-to-pan functionality in preview mode
 - Responsive image scaling and positioning
 
 ### Wallpaper Management
-- Preview wallpapers before downloading
+- Preview wallpapers
 - One-click download and set as wallpaper
 - View and manage downloaded wallpapers
 - Automatic organization in `~/Pictures/WSelector/`
@@ -31,7 +31,6 @@
 - Responsive design for all screen sizes
 - Smooth animations and transitions
 - Intuitive drag gestures for image navigation
-- Keyboard shortcuts for common actions
 
 ## 🖥️ System Requirements
 
