@@ -10,7 +10,7 @@
 ##  Screenshot
 
 <div align="center">
-  <img src="https://i.ibb.co/0R6RVppx/Screenshot-From-2025-05-29-09-45-42.png" width="922" height="772" alt="WSelector Icon">
+  <img src="https://i.ibb.co/0R6RVppx/Screenshot-From-2025-05-29-09-45-42.png" width="922" height="772" alt="WSelector Screenshot">
 </div>
 
 ## ✨ Features
