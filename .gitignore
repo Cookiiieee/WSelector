@@ -1,11 +1,5 @@
-# Development files
-*.pyc
+# Python
 __pycache__/
-*.pyo
-*.pyd
-.Python
-.pytest_cache/
-.mypy_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -25,19 +19,59 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*.log
-.coverage
-.tox/
-.nox/
-.hypothesis/
+*.pyc
+*.pyo
+*.pyd
 .pytest_cache/
 .mypy_cache/
+
+# Flatpak
+.flatpak-builder/
+build-dir/
+repo/
+*.flatpak
+*.flatpak-builder/
+
+# IDEs and Editors
 .vscode/
 .idea/
 *.swp
 *~
 .DS_Store
+
+# Environment
 .env
-.venv
+.venv/
 venv/
 ENV/
+env/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Local development
+config.json
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# Build and distribution
+*.whl
+*.tar.gz
+
+# Project specific
+wselector/__pycache__/
+wselector/*.pyc
+wselector/*.pyo
+wselector/*.pyd
+
+# Thumbnails and cache
+.thumbnails/
+.cache/
+
+# System Files
+.DS_Store
+Thumbs.db
