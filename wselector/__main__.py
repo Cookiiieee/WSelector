@@ -11,7 +11,7 @@ from wselector.app import WSelectorApp
 
 def main():
     app = WSelectorApp(
-        application_id="org.example.WSelector",
+        application_id="io.github.Cookiiieee.WSelector",
         flags=Gio.ApplicationFlags.DEFAULT_FLAGS
     )
     return app.run(sys.argv)

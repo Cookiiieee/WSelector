@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-#!/usr/bin/env python3
-
 import sys
 import os
 import logging
@@ -3139,7 +3137,7 @@ exit 0
 
 
 if __name__ == "__main__":
-    app = WSelectorApp("org.example.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
+    app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
     try:
         app.run(sys.argv)
     except Exception as e:
