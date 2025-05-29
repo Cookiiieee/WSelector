@@ -17,8 +17,13 @@
         "--socket=fallback-x11",
         "--filesystem=home",
         "--filesystem=xdg-pictures:create",
-        "--socket=system-bus",
-        "--socket=session-bus"
+        "--talk-name=org.freedesktop.Notifications",
+        "--talk-name=org.gtk.Actions",
+        "--talk-name=org.gtk.vfs.*",
+        "--talk-name=org.freedesktop.FileManager1",
+        "--talk-name=org.gnome.Shell",
+        "--talk-name=org.kde.KWin",
+        "--talk-name=org.freedesktop.portal.Desktop"
     ],
     "modules": [
         {
