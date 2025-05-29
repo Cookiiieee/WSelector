@@ -1381,7 +1381,6 @@ class WSelectorApp(Adw.Application):
     def on_preferences(self, action, param):
         """Show the preferences dialog."""
         logger.info("Opening preferences dialog")
-        logger.info("Opening preferences dialog")
         
         # Get current settings with proper defaults
         self.config.setdefault("selected_categories", ["General"])
@@ -1395,208 +1394,150 @@ class WSelectorApp(Adw.Application):
             current_purity = ["SFW"]
             self.config["selected_purity"] = current_purity
         
-        # Create the preferences dialog
-        dialog = Gtk.Dialog(
-            title="Preferences",
-            transient_for=self.props.active_window,
-            modal=True,
-            destroy_with_parent=True
-        )
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Save", Gtk.ResponseType.OK)
+        # Create the preferences window
+        dialog = Adw.PreferencesWindow()
+        dialog.set_title("Preferences")
+        dialog.set_modal(True)
+        dialog.set_transient_for(self.props.active_window)
+        dialog.set_default_size(250, 450)
         
-        # Set default button and size
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.set_default_size(400, -1)
-        
-        # Create content area with proper spacing
-        content_area = dialog.get_content_area()
-        content_area.set_margin_top(12)
-        content_area.set_margin_bottom(12)
-        content_area.set_margin_start(12)
-        content_area.set_margin_end(12)
-        content_area.set_spacing(24)  # Increased spacing for better visual separation
-        
-        # Categories frame
-        categories_frame = Gtk.Frame()
-        categories_frame.set_margin_bottom(12)
-        categories_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        categories_box.set_margin_top(6)
-        categories_box.set_margin_bottom(6)
-        categories_box.set_margin_start(6)
-        categories_box.set_margin_end(6)
-        
-        categories_label = Gtk.Label(label="<b>Categories</b>")
-        categories_label.set_use_markup(True)
-        categories_label.set_halign(Gtk.Align.START)
-        categories_box.append(categories_label)
-        
-        # Initialize category buttons dictionary if it doesn't exist
-        if not hasattr(self, 'category_buttons'):
-            self.category_buttons = {}
-        
-        # Category checkboxes with descriptions
-        category_options = [
-            ("General (General wallpapers)", "General"),
-            ("Anime (Anime/Manga style)", "Anime"),
-            ("People (Wallpapers featuring people)", "People")
-        ]
-        
-        for label, cat in category_options:
-            btn = Gtk.CheckButton(label=label)
-            btn.set_active(cat in current_categories)
-            btn.set_margin_start(12)
-            self.category_buttons[cat.lower()] = btn
-            categories_box.append(btn)
-        
-        categories_frame.set_child(categories_box)
-        
-        # Purity frame
-        purity_frame = Gtk.Frame()
-        purity_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        purity_box.set_margin_top(6)
-        purity_box.set_margin_bottom(6)
-        purity_box.set_margin_start(6)
-        purity_box.set_margin_end(6)
-        
-        purity_label = Gtk.Label(label="<b>Content Safety</b>")
-        purity_label.set_use_markup(True)
-        purity_label.set_halign(Gtk.Align.START)
-        purity_box.append(purity_label)
-        
-        # Initialize purity buttons dictionary if it doesn't exist
-        if not hasattr(self, 'purity_buttons'):
-            self.purity_buttons = {}
-        
-        # Purity checkboxes with descriptions
-        purity_levels = [
-            ("SFW (Safe For Work only)", "SFW"),
-            ("Sketchy (May contain mature content)", "Sketchy")
-        ]
-        
-        for label, purity in purity_levels:
-            btn = Gtk.CheckButton(label=label)
-            btn.set_active(purity in current_purity)
-            btn.set_margin_start(12)
-            self.purity_buttons[purity.lower()] = btn
-            purity_box.append(btn)
-        
-        # Add note about NSFW content
-        note_label = Gtk.Label(label="<small>Note: Sketchy content is NSFW, please be aware of this.</small>")
-        note_label.set_use_markup(True)
-        note_label.set_margin_start(12)
-        note_label.set_margin_top(6)
-        note_label.add_css_class('dim-label')
-        purity_box.append(note_label)
-        
-        purity_frame.set_child(purity_box)
-        
-        # Add frames to content area
-        content_area.append(categories_frame)
-        content_area.append(purity_frame)
-        
-        # Show all widgets
-        dialog.show()
-        
-        # Connect response handler
-        dialog.connect("response", self.on_preferences_response)
+        # Initialize switches dictionaries if they don't exist
+        if not hasattr(self, 'category_switches'):
+            self.category_switches = {}
+        if not hasattr(self, 'purity_switches'):
+            self.purity_switches = {}
 
-    def on_preferences_response(self, dialog, response_id):
-        """Handle the preferences dialog response."""
-        if response_id == Gtk.ResponseType.OK:
-            try:
-                logger.info("Preferences dialog - OK clicked, applying changes")
-                # Get selected categories in the correct order (General, Anime, People)
-                selected_categories = []
-                for cat in ["General", "Anime", "People"]:
-                    if cat.lower() in self.category_buttons and self.category_buttons[cat.lower()].get_active():
-                        selected_categories.append(cat)
+        # Create the Categories page
+        categories_page = Adw.PreferencesPage(title="Categories", icon_name="view-grid-symbolic")
+        dialog.add(categories_page)
+        
+        # Categories group
+        categories_group = Adw.PreferencesGroup(
+            title="Wallpaper Categories",
+            description="Select the types of wallpapers you want to see"
+        )
+        categories_page.add(categories_group)
+        
+        # Category switches with descriptions
+        category_options = [
+            ("General", "General wallpapers"),
+            ("Anime", "Anime/Manga style"),
+            ("People", "Wallpapers featuring people")
+        ]
+        
+        for cat, subtitle in category_options:
+            row = Adw.SwitchRow(title=cat, subtitle=subtitle)
+            row.set_active(cat in current_categories)
+            self.category_switches[cat.lower()] = row
+            categories_group.add(row)
+        
+        # Create the Content Safety page
+        safety_page = Adw.PreferencesPage(title="Content Safety", icon_name="security-high-symbolic")
+        dialog.add(safety_page)
+        
+        # Purity group
+        purity_group = Adw.PreferencesGroup(
+            title="Purity Levels",
+            description="Filter content based on purity level"
+        )
+        safety_page.add(purity_group)
+        
+        # SFW toggle (optional)
+        sfw_row = Adw.SwitchRow(
+            title="SFW (Safe For Work)",
+            subtitle="Suitable for all audiences"
+        )
+        sfw_row.set_active("SFW" in current_purity or not current_purity)  # Default to enabled if empty
+        self.purity_switches["sfw"] = sfw_row
+        purity_group.add(sfw_row)
+        
+        # Sketchy toggle (optional)
+        sketchy_row = Adw.SwitchRow(
+            title="Sketchy (NSFW)",
+            subtitle="Mature Content (Not Safe For Work)"
+        )
+        sketchy_row.set_active("Sketchy" in current_purity)
+        self.purity_switches["sketchy"] = sketchy_row
+        purity_group.add(sketchy_row)
+        
+        # Add note about content safety
+        note_group = Adw.PreferencesGroup()
+        note_row = Adw.ActionRow(
+            title="Note",
+            subtitle="With Sketchy disabled, only SFW (Safe For Work) content will be shown"
+        )
+        note_group.add(note_row)
+        safety_page.add(note_group)
+        
+        # Connect to the close-request signal to save preferences when window is closed
+        dialog.connect("close-request", self.on_preferences_close)
+        dialog.present()
+
+    def on_preferences_close(self, dialog):
+        """Handle the preferences window close event."""
+        # Get selected categories
+        selected_categories = []
+        for cat, switch in getattr(self, 'category_switches', {}).items():
+            if switch.get_active():
+                selected_categories.append(cat.capitalize())
+        
+        # Get selected purity levels (both optional, default to SFW if none selected)
+        sfw_enabled = self.purity_switches.get("sfw", None) and self.purity_switches["sfw"].get_active()
+        sketchy_enabled = self.purity_switches.get("sketchy", None) and self.purity_switches["sketchy"].get_active()
+        
+        # If neither is selected, default to SFW
+        if not sfw_enabled and not sketchy_enabled:
+            sfw_enabled = True
+        
+        # Ensure at least one category is selected
+        if not selected_categories:
+            selected_categories = ["General"]
+        
+        # Convert to the format expected by the API
+        categories_str = ""
+        for cat in ["General", "Anime", "People"]:
+            categories_str += "1" if cat in selected_categories else "0"
+        
+        # Generate purity string (SFW and Sketchy are optional, NSFW is always 0)
+        purity_str = f"{1 if sfw_enabled else 0}{1 if sketchy_enabled else 0}0"
+        
+        # Get current categories/purity for comparison
+        current_categories = self.config.get("selected_categories", [])
+        current_purity = self.config.get("selected_purity", [])
+        
+        # Get current settings for comparison
+        current_sfw_enabled = "SFW" in self.config.get("selected_purity", ["SFW"])
+        current_sketchy_enabled = "Sketchy" in self.config.get("selected_purity", [])
+        
+        # Only update if there are changes
+        if (set(selected_categories) != set(current_categories) or 
+            sfw_enabled != current_sfw_enabled or 
+            sketchy_enabled != current_sketchy_enabled):
+            
+            # Update config with new values
+            self.config["selected_categories"] = selected_categories
+            selected_purity = []
+            if sfw_enabled:
+                selected_purity.append("SFW")
+            if sketchy_enabled:
+                selected_purity.append("Sketchy")
+            self.config["selected_purity"] = selected_purity if selected_purity else ["SFW"]  # Default to SFW if empty
+            self.config["categories"] = categories_str
+            self.config["purity"] = purity_str
+            
+            # Save and apply preferences
+            if self.save_preferences():
+                logger.info(f"Updated preferences - Categories: {categories_str}, Purity: {purity_str}")
                 
-                # Get selected purity in the correct order (SFW, Sketchy)
-                selected_purity = []
-                for pur in ["SFW", "Sketchy"]:
-                    if pur.lower() in self.purity_buttons and self.purity_buttons[pur.lower()].get_active():
-                        selected_purity.append(pur)
+                # Apply preferences and reload wallpapers with new settings
+                if not self.apply_preferences(reload_wallpapers=True):
+                    self.show_error("Failed to apply preferences")
                 
-                # Always ensure at least one category and one purity is selected
-                if not selected_categories:
-                    selected_categories = ["General"]
-                if not selected_purity:
-                    selected_purity = ["SFW"]
-                
-                # Convert to the format expected by the API
-                categories_str = ""
-                categories_str += "1" if "General" in selected_categories else "0"
-                categories_str += "1" if "Anime" in selected_categories else "0"
-                categories_str += "1" if "People" in selected_categories else "0"
-                
-                purity_str = ""
-                purity_str += "1" if "SFW" in selected_purity else "0"
-                purity_str += "1" if "Sketchy" in selected_purity else "0"
-                purity_str += "0"  # NSFW is always 0 as per requirements
-                
-                # Update config only if there are changes
-                current_categories = self.config.get("selected_categories", [])
-                current_purity = self.config.get("selected_purity", [])
-                
-                if (set(selected_categories) != set(current_categories) or 
-                    set(selected_purity) != set(current_purity)):
-                    
-                    self.config["selected_categories"] = selected_categories
-                    self.config["selected_purity"] = selected_purity
-                    self.config["categories"] = categories_str
-                    self.config["purity"] = purity_str
-                    
-                    # Save the configuration
-                    if self.save_preferences():
-                        toast = Adw.Toast.new("Preferences saved")
-                        toast.set_timeout(1)
-                        self.toast_overlay.add_toast(toast)
-                        logger.info(f"Updated preferences - Categories: {categories_str}, Purity: {purity_str}")
-                        
-                        # Apply preferences and reload wallpapers with new settings
-                        if not self.apply_preferences(reload_wallpapers=True):
-                            self.show_error("Failed to apply preferences")
-                        
-                        # Show a toast to indicate the wallpapers are refreshing
-                        toast = Adw.Toast.new("Refreshing wallpapers with new filters...")
-                        toast.set_timeout(2)
-                        self.toast_overlay.add_toast(toast)
-                    else:
-                        self.show_error("Failed to save preferences")
-                else:
-                    logger.debug("No changes to preferences")
-                
-                # Reload wallpapers with new preferences - do this immediately
-                self.current_page = 1
-                
-                # Reset scroll position to top
-                self._reset_scroll_position()
-                
-                # Clear the flowbox - GTK4 compatible way
-                child = self.flowbox.get_first_child()
-                while child is not None:
-                    next_child = child.get_next_sibling()
-                    self.flowbox.remove(child)
-                    child = next_child
-                
-                # Debug logging for search query state
-                logger.info(f"Preferences dialog - Before reload - Current search query: '{self.current_query}'")
-                
-                # Force a reload with the new preferences
-                logger.info("Reloading wallpapers with updated preferences")
-                # Reset any existing prefetched wallpapers
-                if hasattr(self, 'prefetched_wallpapers'):
-                    self.prefetched_wallpapers = {}
-                
-                # Load wallpapers with the current query (if any) and force a reload
-                self.load_wallpapers(query=self.current_query, page=1, force_reload=True)
-                
-                logger.info(f"Preferences saved and wallpapers reloaded: {self.config}")
-                
-            except Exception as e:
-                logger.error(f"Error saving preferences: {e}")
-                self.show_error(f"Failed to save preferences: {str(e)}")
+                # Show success toast
+                toast = Adw.Toast.new("Preferences saved and wallpapers refreshed")
+                self.toast_overlay.add_toast(toast)
+            else:
+                self.show_error("Failed to save preferences")
         
         dialog.destroy()
         

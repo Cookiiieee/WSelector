@@ -1,86 +1,43 @@
-# Python
+# Development files
+*.pyc
 __pycache__/
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.log
+.coverage
+.tox/
+.nox/
+.hypothesis/
 .pytest_cache/
 .mypy_cache/
-
-# Build and distribution
-build/
-build-dir/
-_build/
-dist/
-*.egg-info/
-.eggs/
-*.egg
-
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# Flatpak
-.flatpak-builder/
-repo/
-
-# IDE
-.idea/
 .vscode/
+.idea/
 *.swp
-*.swo
 *~
-
-# System Files
 .DS_Store
-Thumbs.db
-
-# Local development
 .env
-.env.local
-
-# Logs
-*.log
-
-# Local configuration
-config.json
-
-# Cache
-.cache/
-
-# Meson build system
-meson-private/
-meson-info/
-meson-logs/
-compile_commands.json
-
-# Build directory
-build-dir/
-
-# Virtual Environment
+.venv
 venv/
-env/
 ENV/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Local configuration
-.env
-.env.local
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
