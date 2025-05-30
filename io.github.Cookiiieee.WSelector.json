@@ -3,27 +3,40 @@
     "runtime": "org.gnome.Platform",
     "runtime-version": "48",
     "sdk": "org.gnome.Sdk",
+    "branch": "main",
     "command": "wselector",
+    "tags": ["v0.1.2"],
     "sources": [
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "tag": "v0.1.1"
+            "tag": "v0.1.2"
         }
     ],
     "finish-args": [
         "--share=network",
         "--socket=wayland",
         "--socket=fallback-x11",
-        "--filesystem=home",
-        "--filesystem=xdg-pictures:create",
-        "--talk-name=org.freedesktop.Notifications",
+        "--filesystem=xdg-pictures/WSelector:create",
+        "--filesystem=xdg-config/wselector:create",
+        "--filesystem=xdg-cache/wselector:create",
+        "--filesystem=xdg-data/wselector:create",
+        "--filesystem=xdg-pictures/wallpapers:ro",
         "--talk-name=org.gtk.Actions",
-        "--talk-name=org.gtk.vfs.*",
+        "--talk-name=org.freedesktop.Notifications",
         "--talk-name=org.freedesktop.FileManager1",
-        "--talk-name=org.gnome.Shell",
-        "--talk-name=org.kde.KWin",
-        "--talk-name=org.freedesktop.portal.Desktop"
+        "--filesystem=xdg-run/dconf",
+        "--filesystem=~/.config/dconf:ro",
+        "--talk-name=ca.desrt.dconf",
+        "--env=DCONF_USER_CONFIG_DIR=.config/dconf"
+    ],
+    "cleanup": [
+        "/share/man",
+        "/include",
+        "*.la",
+        "*.a",
+        "/bin/*.pyc",
+        "/bin/__pycache__"
     ],
     "modules": [
         {
@@ -38,7 +51,8 @@
                 "build-args": ["--share=network"]
             },
             "build-commands": [
-                "pip3 install --no-cache-dir --prefix=/app requests>=2.31.0 beautifulsoup4>=4.13.4 psutil>=7.0.0"
+                "pip3 install --no-cache-dir --prefix=/app requests>=2.31.0 beautifulsoup4>=4.13.4 psutil>=7.0.0",
+                "find /app -type f -name '*.pyc' -delete"
             ]
         },
         {
@@ -46,7 +60,7 @@
             "buildsystem": "simple",
             "build-commands": [
                 "mkdir -p ${FLATPAK_DEST}/bin",
-                "mkdir -p ${FLATPAK_DEST}/lib/python3.12/site-packages/wselector",
+                "mkdir -p ${FLATPAK_DEST}/lib/python3.12/site-packages",
                 "mkdir -p ${FLATPAK_DEST}/share/icons/hicolor/{16x16,32x32,48x48,64x64,96x96,128x128,192x192,256x256,512x512,scalable}/apps",
                 "mkdir -p ${FLATPAK_DEST}/share/applications",
                 "mkdir -p ${FLATPAK_DEST}/share/metainfo",
@@ -57,7 +71,8 @@
                 "install -Dm644 io.github.Cookiiieee.WSelector.appdata.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.appdata.xml",
                 "update-desktop-database ${FLATPAK_DEST}/share/applications",
                 "install -Dm755 set_wallpaper.sh ${FLATPAK_DEST}/bin/set_wallpaper.sh",
-                "echo '#!/bin/sh\nPYTHONPATH=${FLATPAK_DEST}/lib/python3.12/site-packages /usr/bin/python3 -m wselector \"$@\"' > ${FLATPAK_DEST}/bin/wselector",
+                "mkdir -p ${FLATPAK_DEST}/app/bin",
+                "echo '#!/bin/sh\nPYTHONPATH=/app/lib/python3.12/site-packages\nexec /usr/bin/python3 -m wselector \"$@\"' > ${FLATPAK_DEST}/bin/wselector",
                 "chmod +x ${FLATPAK_DEST}/bin/wselector"
             ],
             "sources": [

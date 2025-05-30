@@ -18,7 +18,11 @@ declare -A icon_map=(
 # Create target directories and copy icons
 for size in "${!icon_map[@]}"; do
     icon_size=${icon_map[$size]}
-    icon_src="icons/icon_1748228995_${icon_size}.png"
+    # Look for both possible icon naming conventions
+    icon_src="data/icons/hicolor/${size}x${size}/apps/org.example.WSelector.png"
+    if [ ! -f "$icon_src" ]; then
+        icon_src="data/icons/hicolor/${size}x${size}/apps/io.github.Cookiiieee.WSelector.png"
+    fi
     
     if [ -f "$icon_src" ]; then
         mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/"
