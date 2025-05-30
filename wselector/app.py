@@ -3035,7 +3035,7 @@ exit 0
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version 1.0", 
+        version_label = Gtk.Label(label="Version 0.1.2", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)
