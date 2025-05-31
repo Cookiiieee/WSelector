@@ -18,17 +18,16 @@
         "--socket=wayland",
         "--socket=fallback-x11",
         "--filesystem=xdg-pictures/WSelector:create",
-        "--filesystem=xdg-config/wselector:create",
         "--filesystem=xdg-cache/wselector:create",
+        "--filesystem=xdg-config/wselector:create",
         "--filesystem=xdg-data/wselector:create",
         "--filesystem=xdg-pictures/wallpapers:ro",
+        "--talk-name=org.freedesktop.portal.Desktop",
+        "--system-talk-name=org.freedesktop.Notifications",
+        "--talk-name=org.gnome.SessionManager",
+        "--talk-name=org.gnome.SettingsDaemon.MediaKeys",
         "--talk-name=org.gtk.Actions",
-        "--talk-name=org.freedesktop.Notifications",
-        "--talk-name=org.freedesktop.FileManager1",
-        "--filesystem=xdg-run/dconf",
-        "--filesystem=~/.config/dconf:ro",
-        "--talk-name=ca.desrt.dconf",
-        "--env=DCONF_USER_CONFIG_DIR=.config/dconf"
+        "--talk-name=org.freedesktop.FileManager1"
     ],
     "cleanup": [
         "/share/man",
@@ -70,7 +69,6 @@
                 "install -Dm644 wselector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
                 "install -Dm644 io.github.Cookiiieee.WSelector.appdata.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.appdata.xml",
                 "update-desktop-database ${FLATPAK_DEST}/share/applications",
-                "install -Dm755 set_wallpaper.sh ${FLATPAK_DEST}/bin/set_wallpaper.sh",
                 "mkdir -p ${FLATPAK_DEST}/app/bin",
                 "echo '#!/bin/sh\nPYTHONPATH=/app/lib/python3.12/site-packages\nexec /usr/bin/python3 -m wselector \"$@\"' > ${FLATPAK_DEST}/bin/wselector",
                 "chmod +x ${FLATPAK_DEST}/bin/wselector"

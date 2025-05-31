@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="wselector",
-    version="0.2.0",
+    version="0.1.3",
     author="Cookiiieee",
     author_email="your.email@example.com",  # Update this
     description="A modern GTK4/Adwaita application for browsing, downloading, and setting wallpapers from Wallhaven.cc",
