@@ -106,9 +106,6 @@ class WSelectorApp(Adw.Application):
         self.margin = 10
         self.scroll_position = 0  # Track scroll position for refresh
         
-        # Schedule theme application after the main loop starts
-        GLib.idle_add(self.apply_saved_theme)
-
         # Search debounce timer
         self.search_timeout_id = None
         self.search_delay_ms = 800  # 800ms delay - increased to accommodate fast typing
@@ -975,8 +972,47 @@ class WSelectorApp(Adw.Application):
             
         GLib.timeout_add(100, set_scroll)
 
+    def _on_viewport_changed(self, *args):
+        """Handle viewport changes to load visible thumbnails."""
+        if not hasattr(self, 'flowbox') or not hasattr(self, 'scroll'):
+            return
+            
+        # Get the viewport and visible area
+        viewport = self.scroll.get_child()
+        if not viewport:
+            return
+            
+        visible_rect = viewport.get_visible_rect()
+        
+        # Add some padding to the visible area to preload items
+        padding = visible_rect.height * 0.5  # 50% of viewport height as padding
+        visible_rect.y = max(0, visible_rect.y - padding)
+        visible_rect.height += 2 * padding  # Add padding to both top and bottom
+        
+        # Check each widget in the flowbox
+        for child in self.flowbox.get_children():
+            if not hasattr(child, 'wp_data'):
+                continue
+                
+            # Get the widget's allocation (position and size)
+            allocation = child.get_allocation()
+            if not allocation or allocation.width == 1 or allocation.height == 1:
+                continue
+                
+            # Check if widget is in the visible area (with padding)
+            child_rect = Gdk.Rectangle()
+            child_rect.x = allocation.x
+            child_rect.y = allocation.y
+            child_rect.width = allocation.width
+            child_rect.height = allocation.height
+            
+            if visible_rect.intersect(child_rect)[0]:  # Returns True if overlapping
+                # Load the thumbnail if not already loaded
+                if hasattr(child, 'load_async') and not hasattr(child, '_loaded'):
+                    child.load_async()
+    
     def populate_flowbox(self, wallpapers):
-        """Populate the flowbox with wallpapers."""
+        """Populate the flowbox with wallpapers using lazy loading."""
         try:
             logger.debug(f"=== populate_flowbox called with {len(wallpapers)} wallpapers ===")
             logger.debug(f"Current page: {self.current_page}")
@@ -996,6 +1032,14 @@ class WSelectorApp(Adw.Application):
                 self.flowbox.set_margin_end(self.margin)
                 self.flowbox.set_margin_top(self.margin)
                 self.flowbox.set_margin_bottom(self.margin)
+                
+                # Connect to the viewport's scroll events for lazy loading
+                if hasattr(self, 'scroll'):
+                    vadjustment = self.scroll.get_vadjustment()
+                    vadjustment.connect("value-changed", self._on_viewport_changed)
+                    
+                    # Also check when the viewport size changes
+                    self.scroll.get_child().connect("size-allocate", self._on_viewport_changed)
                 
                 # Add flowbox to scrollable if it's not already there
                 if hasattr(self, 'scroll') and self.scroll.get_child() is None:
@@ -2816,6 +2860,45 @@ class WSelectorApp(Adw.Application):
             # Set the window's content
             browser_window.set_content(toast_overlay)
             
+            # Connect close request to clear thumbnails
+            def on_close_request(window):
+                logger.debug("Clearing thumbnail cache and resources on window close")
+                
+                # Clear all picture data from widgets
+                for wp_path, widget in list(self._thumbnail_widgets.items()):
+                    try:
+                        if hasattr(widget, 'overlay') and widget.overlay:
+                            # In GTK4, we need to unparent all children from the overlay
+                            child = widget.overlay.get_first_child()
+                            while child is not None:
+                                next_child = child.get_next_sibling()
+                                child.unparent()  # Remove from parent in GTK4
+                                child = next_child
+                            
+                            # Clear any picture data
+                            if hasattr(widget, 'picture') and widget.picture:
+                                widget.picture.set_paintable(None)
+                                widget.picture = None
+                                
+                            # Stop and clear spinner if it exists
+                            if hasattr(widget, 'spinner') and widget.spinner:
+                                widget.spinner.stop()
+                                widget.spinner = None
+                    except Exception as e:
+                        logger.error(f"Error cleaning up widget: {e}")
+                            
+                # Clear the widgets dictionary
+                self._thumbnail_widgets.clear()
+                
+                # Force garbage collection to free up memory
+                import gc
+                gc.collect()
+                
+                logger.debug("Thumbnail cleanup completed")
+                return False  # Allow window to close
+                
+            browser_window.connect('close-request', on_close_request)
+            
             # Show the window
             browser_window.present()
             
@@ -3118,6 +3201,49 @@ class WSelectorApp(Adw.Application):
 if __name__ == "__main__":
     app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
     try:
+        app.run(sys.argv)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        sys.exit(1)
+        content.append(actions_box)
+        
+        # Credits
+        credits_label = Gtk.Label(
+            label="<small>With gratitude to the Wallhaven.cc team for their amazing wallpaper collection.</small>",
+            use_markup=True,
+            margin_top=18,
+            opacity=0.6,
+            justify=Gtk.Justification.CENTER
+        )
+        content.append(credits_label)
+        
+        # Add close button to action area
+        close_btn = about.add_button("Close", Gtk.ResponseType.CLOSE)
+        close_btn.connect("clicked", lambda *_: about.destroy())
+        
+        # Set the content and show the dialog
+        about.set_child(content)
+        about.present()
+
+
+    def show_error(self, message):
+        logger.error(message)
+
+    def on_window_size_changed(self, widget, param):
+        pass
+
+    def do_startup(self):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
+        Gtk.Application.do_startup(self)
+
+
+if __name__ == "__main__":
+    app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
+    try:
+        app.run(sys.argv)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        sys.exit(1)
         app.run(sys.argv)
     except Exception as e:
         logger.error(f"An error occurred: {e}")
