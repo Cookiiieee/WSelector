@@ -2632,15 +2632,9 @@ class WSelectorApp(Adw.Application):
                 logger.error(f"Overlay dir: {dir(widget.overlay) if hasattr(widget.overlay, '__dir__') else 'No dir'}")
                 
     def _show_downloads_browser(self, force_refresh=False):
-        """Show a file browser for the downloaded wallpapers
-        
-        Args:
-            force_refresh: If True, forces a refresh of the wallpapers cache
-        """
+        """Show a file browser for the downloaded wallpapers with lazy loading"""
         try:
-            logger.info("Showing downloads browser")
-            logger.debug(f"Current working directory: {os.getcwd()}")
-            logger.debug(f"Wallpapers directory: {self.get_wallpapers_dir()}")
+            logger.info("Showing downloads browser with lazy loading")
             
             # Clear cache if force refresh is requested
             if force_refresh:
@@ -2652,278 +2646,374 @@ class WSelectorApp(Adw.Application):
             wallpapers = self._get_cached_wallpapers()
             logger.debug(f"Found {len(wallpapers)} wallpapers in cache")
             
+            # Create toast overlay first
+            toast_overlay = Adw.ToastOverlay()
+            
             # Create a new window
-            browser_window = Adw.Window.new()
+            browser_window = Adw.Window()
             browser_window.set_title("Downloaded Wallpapers")
-            browser_window.set_default_size(800, 600)
+            browser_window.set_default_size(900, 600)
             
-            # Create a toast overlay for notifications
-            toast_overlay = Adw.ToastOverlay.new()
+            # Connect to the close event
+            browser_window.connect('close-request', self._on_downloads_browser_close)
             
+            # Store window data for callbacks
+            browser_window.wallpapers = wallpapers
+            browser_window.visible_range = (0, 20)
+            browser_window.loading = False
+            browser_window.pending_thumbnails = set()
+            browser_window.item_count = 0
+            browser_window.flowbox = None  # Will be set later
+            browser_window.viewport = None  # Will be set later
+            browser_window.scrolled = None  # Will be set later
+            browser_window.toast_overlay = toast_overlay  # Store reference to toast_overlay
+
             # Create the main box
-            main_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+            main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
             
             # Create a header bar
-            header = Adw.HeaderBar.new()
-            title_widget = Adw.WindowTitle.new("Downloaded Wallpapers", f"{len(wallpapers)} wallpapers")
+            header = Adw.HeaderBar()
+            title_widget = Adw.WindowTitle(title="Downloaded Wallpapers", 
+                                        subtitle=f"{len(wallpapers)} wallpapers")
             header.set_title_widget(title_widget)
             
             # Add a refresh button
-            refresh_button = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
+            refresh_button = Gtk.Button(icon_name="view-refresh-symbolic")
             refresh_button.set_tooltip_text("Refresh")
-            refresh_button.connect("clicked", lambda b: self._refresh_downloads_browser(browser_window))
+            refresh_button.connect("clicked", lambda *_: self._refresh_downloads_browser(browser_window))
             header.pack_start(refresh_button)
             
             # Add an open folder button
-            folder_button = Gtk.Button.new_from_icon_name("folder-open-symbolic")
+            folder_button = Gtk.Button(icon_name="folder-open-symbolic")
             folder_button.set_tooltip_text("Open Downloads Folder")
-            folder_button.connect("clicked", lambda b: self._open_downloads_folder())
+            folder_button.connect("clicked", lambda *_: self._open_downloads_folder())
             header.pack_start(folder_button)
             
             main_box.append(header)
             
             # Create a scrolled window
-            scrolled = Gtk.ScrolledWindow.new()
+            scrolled = Gtk.ScrolledWindow()
             scrolled.set_hexpand(True)
             scrolled.set_vexpand(True)
-            scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)  # Only vertical scrolling
+            scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
             
-            # Create a viewport to contain the flowbox
-            viewport = Gtk.Viewport.new()
+            # Create a viewport
+            viewport = Gtk.Viewport()
             viewport.set_hexpand(True)
             viewport.set_vexpand(True)
-            viewport.set_scroll_to_focus(True)
             
-            # Create a flowbox for the wallpapers with consistent sizing
-            flowbox = Gtk.FlowBox.new()
+            # In _show_downloads_browser method, update the flowbox settings:
+            flowbox = Gtk.FlowBox()
             flowbox.set_valign(Gtk.Align.START)
             flowbox.set_selection_mode(Gtk.SelectionMode.NONE)
             flowbox.set_homogeneous(True)
             flowbox.set_column_spacing(12)
             flowbox.set_row_spacing(12)
-            flowbox.set_margin_start(24)
-            flowbox.set_margin_end(24)
+            flowbox.set_margin_start(12)
+            flowbox.set_margin_end(12)
             flowbox.set_margin_top(12)
-            flowbox.set_margin_bottom(24)
+            flowbox.set_margin_bottom(12)
             flowbox.set_halign(Gtk.Align.FILL)
             flowbox.set_hexpand(True)
-            flowbox.set_max_children_per_line(4)  # Adjust based on window size
-            flowbox.set_min_children_per_line(2)  # At least 2 items per row
+            flowbox.set_max_children_per_line(1000)
             
-            # Connect to size allocation changes to adjust the number of columns based on width
-            def on_flowbox_size_changed(flowbox, pspec):
-                # Get the allocation
-                allocation = flowbox.get_allocation()
-                if allocation.width <= 1:  # Skip invalid allocations
+            # Store references
+            browser_window.flowbox = flowbox
+            browser_window.viewport = viewport
+            browser_window.scrolled = scrolled
+            
+            # Connect to viewport changes
+            def on_viewport_changed(viewport):
+                if not hasattr(browser_window, 'wallpapers') or not browser_window.wallpapers:
                     return
-                    
-                # Calculate number of columns based on width (200px per item + spacing)
-                item_width = 200
-                spacing = flowbox.get_column_spacing()
-                margin = flowbox.get_margin_start() + flowbox.get_margin_end()
-                available_width = allocation.width - margin
-                n_columns = max(2, min(6, available_width // (item_width + spacing)))
-                flowbox.set_max_children_per_line(n_columns)
                 
-            # Connect to the notify::allocation signal in GTK4
-            flowbox.connect('notify::allocation', on_flowbox_size_changed)
+                # Get the scrolled window
+                scrolled = browser_window.scrolled
+                adj = scrolled.get_vadjustment()
+                
+                # Only update if we're not already loading and user has stopped scrolling
+                if browser_window.loading or hasattr(browser_window, '_scroll_timeout_id') and browser_window._scroll_timeout_id:
+                    return
+                
+                # Get visible area with some padding
+                value = adj.get_value()
+                page_size = adj.get_page_size()
+
+                # Calculate visible range with some buffer
+                item_height = 200  # Approximate height of each item
+                visible_start = max(0, int((value - 2 * item_height) / item_height) * 4)
+                visible_end = min(
+                    len(browser_window.wallpapers),
+                    int((value + page_size + 2 * item_height) / item_height) * 4 + 4
+                )
+                
+                # Update visible range if changed
+                old_start, old_end = browser_window.visible_range
+                if visible_start != old_start or visible_end != old_end:
+                    browser_window.visible_range = (visible_start, visible_end)
+                    self._update_visible_thumbnails(browser_window)
+
+            # Connect the signal
+            scrolled.get_vadjustment().connect("value-changed", lambda *_: on_viewport_changed(viewport))
             
-            # Add flowbox to viewport
             viewport.set_child(flowbox)
             scrolled.set_child(viewport)
-            
-            # Clear any existing thumbnails
-            self._thumbnail_widgets.clear()
-            
-            # Add wallpapers to the flowbox
-            if wallpapers:
-                logger.debug(f"Adding {len(wallpapers)} wallpapers to flowbox")
-                for idx, (wp_path, mtime, filename) in enumerate(wallpapers, 1):
-                    logger.debug(f"Processing wallpaper {idx}/{len(wallpapers)}: {filename}")
-                    if not os.path.exists(wp_path):
-                        logger.warning(f"Wallpaper file not found: {wp_path}")
-                        continue
-                        
-                    # Create a box for the wallpaper item
-                    box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 6)
-                    box.set_margin_top(6)
-                    box.set_margin_bottom(6)
-                    box.set_margin_start(6)
-                    box.set_margin_end(6)
-                    box.set_name(f"wallpaper_box_{idx}")
-                    
-                    # Create a frame for the image
-                    frame = Gtk.Frame.new()
-                    frame.set_name(f"frame_{idx}")
-                    frame.set_size_request(200, 150)
-                    frame.set_hexpand(True)
-                    frame.set_halign(Gtk.Align.FILL)
-                    frame.set_valign(Gtk.Align.FILL)
-                    
-                    # Create overlay for spinner and image
-                    overlay = Gtk.Overlay.new()
-                    overlay.set_hexpand(True)
-                    overlay.set_halign(Gtk.Align.FILL)
-                    overlay.set_valign(Gtk.Align.FILL)
-                    
-                    # Create and add spinner
-                    spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-                    spinner_box.set_halign(Gtk.Align.CENTER)
-                    spinner_box.set_valign(Gtk.Align.CENTER)
-                    spinner_box.set_hexpand(True)
-                    spinner_box.set_vexpand(True)
-                    
-                    spinner = Gtk.Spinner.new()
-                    spinner.set_size_request(32, 32)
-                    spinner.start()
-                    spinner_box.append(spinner)
-                    
-                    # Add spinner to overlay
-                    overlay.set_child(spinner_box)
-                    
-                    # Set overlay as frame's child
-                    frame.set_child(overlay)
-                    
-                    # Store references
-                    frame.overlay = overlay
-                    frame.spinner = spinner
-                    frame.filepath = wp_path
-                    frame.picture = None
-                    
-                    # Store in our widgets dictionary
-                    self._thumbnail_widgets[wp_path] = frame
-                    
-                    # Add the frame to the box
-                    box.append(frame)
-                    
-                    # Add filename label
-                    label = Gtk.Label.new(filename)
-                    label.set_ellipsize(3)
-                    label.set_max_width_chars(20)
-                    label.set_halign(Gtk.Align.START)
-                    label.set_margin_start(4)
-                    label.set_margin_end(4)
-                    label.set_margin_bottom(4)
-                    label.set_hexpand(True)
-                    box.append(label)
-                    
-                    # Set up click handlers
-                    frame.set_cursor(Gdk.Cursor.new_from_name("pointer"))
-                    
-                    click = Gtk.GestureClick.new()
-                    click.connect("pressed", 
-                    lambda g, n, x, y, path=wp_path, widget=frame: self._show_wallpaper_preview(path, widget.get_root()))
-                    frame.add_controller(click)
-                    
-                    context_menu = Gtk.GestureClick.new()
-                    context_menu.set_button(3)
-                    context_menu.connect("pressed", 
-                        lambda g, n, x, y, path=wp_path: self._show_wallpaper_context_menu(path, g, x, y))
-                    frame.add_controller(context_menu)
-                    
-                    # Add to flowbox
-                    flowbox.append(box)
-                    
-                    # Start loading the thumbnail
-                    self._load_thumbnail_async(wp_path, mtime, flowbox)
-            else:
-                # Show a message if no wallpapers are found
-                empty_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 10)
-                empty_box.set_valign(Gtk.Align.CENTER)
-                empty_box.set_halign(Gtk.Align.CENTER)
-                
-                # Add an icon
-                icon = Gtk.Image.new_from_icon_name("folder-pictures-symbolic")
-                icon.set_pixel_size(64)
-                empty_box.append(icon)
-                
-                # Add a label
-                label = Gtk.Label.new("No downloaded wallpapers found")
-                label.set_margin_top(10)
-                empty_box.append(label)
-                
-                # Add a subtitle
-                subtitle = Gtk.Label.new(f"Download wallpapers to {self.get_wallpapers_dir()}")
-                empty_box.append(subtitle)
-                
-                flowbox.append(empty_box)
-            
-            # Add the flowbox to the scrolled window
-            scrolled.set_child(flowbox)
-            
-            # Add the scrolled window to the main box
-            main_box.append(scrolled)
-            
-            # Set the toast overlay's child
             toast_overlay.set_child(main_box)
-            
-            # Set the window's content
+            main_box.append(scrolled)
             browser_window.set_content(toast_overlay)
-            
-            # Connect close request to clear thumbnails
-            def on_close_request(window):
-                logger.debug("Clearing thumbnail cache and resources on window close")
-                
-                # Clear all picture data from widgets
-                for wp_path, widget in list(self._thumbnail_widgets.items()):
-                    try:
-                        if hasattr(widget, 'overlay') and widget.overlay:
-                            # In GTK4, we need to unparent all children from the overlay
-                            child = widget.overlay.get_first_child()
-                            while child is not None:
-                                next_child = child.get_next_sibling()
-                                child.unparent()  # Remove from parent in GTK4
-                                child = next_child
-                            
-                            # Clear any picture data
-                            if hasattr(widget, 'picture') and widget.picture:
-                                widget.picture.set_paintable(None)
-                                widget.picture = None
-                                
-                            # Stop and clear spinner if it exists
-                            if hasattr(widget, 'spinner') and widget.spinner:
-                                widget.spinner.stop()
-                                widget.spinner = None
-                    except Exception as e:
-                        logger.error(f"Error cleaning up widget: {e}")
-                            
-                # Clear the widgets dictionary
-                self._thumbnail_widgets.clear()
-                
-                # Force garbage collection to free up memory
-                import gc
-                gc.collect()
-                
-                logger.debug("Thumbnail cleanup completed")
-                return False  # Allow window to close
-                
-            browser_window.connect('close-request', on_close_request)
             
             # Show the window
             browser_window.present()
             
+            # Initial update of visible thumbnails
+            GLib.idle_add(self._update_visible_thumbnails, browser_window)
+            
         except Exception as e:
             logger.error(f"Error showing downloads browser: {e}")
-            logger.error(f"Error type: {type(e).__name__}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
             self.show_error_toast(f"Error showing downloads: {e}")
+
+    def _add_thumbnail_placeholder(self, flowbox, index, browser_window):
+        """Add a placeholder widget for lazy loading"""
+        # Main container box
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.set_margin_top(6)
+        box.set_margin_bottom(6)
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+        box.set_valign(Gtk.Align.START)
+        
+        # Frame for the image (matches main window)
+        frame = Gtk.Frame()
+        frame.set_hexpand(True)
+        frame.set_vexpand(True)
+        frame.set_size_request(200, 200)
+        
+        # Create overlay for spinner
+        overlay = Gtk.Overlay()
+        
+        # Create a spinner
+        spinner = Gtk.Spinner()
+        spinner.set_halign(Gtk.Align.CENTER)
+        spinner.set_valign(Gtk.Align.CENTER)
+        spinner.start()
+        
+        # Add spinner to overlay
+        overlay.add_overlay(spinner)
+        
+        # Set up the frame
+        frame.set_child(overlay)
+        box.append(frame)
+        
+        # Store index as a property
+        box.index = index
+        flowbox.append(box)
+        browser_window.item_count += 1
+        return box
+
+    def _update_visible_thumbnails(self, browser_window):
+        """Update thumbnails for currently visible items"""
+        if not hasattr(browser_window, 'wallpapers') or not browser_window.wallpapers:
+            return
+            
+        if browser_window.loading:
+            return
+            
+        browser_window.loading = True
+        start_idx, end_idx = browser_window.visible_range
+        wallpapers = browser_window.wallpapers
+        
+        # Get or create thread pool
+        executor = self._get_executor()
+        
+        # Process visible items
+        for i in range(start_idx, min(end_idx, len(wallpapers))):
+            # Skip if already loading or loaded
+            if i in browser_window.pending_thumbnails:
+                continue
+                
+            wp_path, mtime, filename = wallpapers[i]
+            
+            # Skip if file doesn't exist
+            if not os.path.exists(wp_path):
+                continue
+                
+            # Mark as loading
+            browser_window.pending_thumbnails.add(i)
+            
+            # Get or create placeholder widget
+            if i >= browser_window.item_count:
+                self._add_thumbnail_placeholder(browser_window.flowbox, i, browser_window)
+                
+            child = browser_window.flowbox.get_child_at_index(i)
+            if not child:
+                continue
+                
+            # Load thumbnail in background
+            future = executor.submit(self._load_thumbnail_sync, wp_path, mtime, child)
+            future.add_done_callback(
+                lambda f, idx=i: GLib.idle_add(
+                    self._on_thumbnail_loaded, f, browser_window, idx
+                )
+            )
+        
+        browser_window.loading = False
+
+    def _load_thumbnail_sync(self, filepath, mtime, widget):
+        """Load thumbnail synchronously (run in thread)"""
+        try:
+            # Load larger thumbnail to match main window
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                filepath, 400, 400, True  # Larger size for better quality
+            )
+            return (filepath, pixbuf, widget, None)
+        except Exception as e:
+            logger.error(f"Error loading thumbnail for {filepath}: {e}")
+            return (filepath, None, widget, str(e))
+
+    def _on_thumbnail_loaded(self, future, browser_window, index):
+        """Callback when thumbnail loading is complete"""
+        try:
+            filepath, pixbuf, widget, error = future.result()
+            
+            # Remove from pending
+            if index in browser_window.pending_thumbnails:
+                browser_window.pending_thumbnails.remove(index)
+            
+            if error or not pixbuf:
+                logger.warning(f"Failed to load thumbnail for {filepath}: {error}")
+                return
+                
+            # Get the child widget inside the FlowBoxChild
+            child_widget = widget.get_child()
+            if not child_widget:
+                logger.error("No child widget found in FlowBoxChild")
+                return
+                
+            # Update the widget
+            self._update_thumbnail_widget(child_widget, pixbuf, os.path.basename(filepath))
+            
+        except Exception as e:
+            logger.error(f"Error in thumbnail callback: {e}")
+
+    def _update_thumbnail_widget(self, widget, pixbuf, filename):
+        """Update the widget with the loaded thumbnail"""
+        # Clear existing content
+        while widget.get_first_child():
+            widget.remove(widget.get_first_child())
+        
+        # Main container box
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.set_margin_top(6)
+        box.set_margin_bottom(6)
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+        box.set_valign(Gtk.Align.START)
+        
+        # Frame for the image (matches main window)
+        frame = Gtk.Frame()
+        frame.set_hexpand(True)
+        frame.set_vexpand(True)
+        frame.set_size_request(200, 200)
+        
+        # Store the filepath in the frame for the click handler
+        frame.filepath = os.path.join(self.get_wallpapers_dir(), filename)
+        
+        # Add click handler to the frame
+        click_gesture = Gtk.GestureClick()
+        click_gesture.connect("released", self._on_download_thumbnail_clicked)
+        frame.add_controller(click_gesture)
+        
+        # Create overlay for the image
+        overlay = Gtk.Overlay()
+        
+        # Create image with content fit to cover the frame while maintaining aspect ratio
+        image = Gtk.Picture.new_for_pixbuf(pixbuf)
+        image.set_can_shrink(True)
+        image.set_hexpand(True)
+        image.set_vexpand(True)
+        image.set_content_fit(Gtk.ContentFit.COVER)
+        
+        # Add image to overlay, and overlay to frame
+        overlay.set_child(image)
+        frame.set_child(overlay)
+        
+        # Add frame to the main container
+        box.append(frame)
+        
+        # Add the container to the widget
+        widget.append(box)
+    
+    def _on_download_thumbnail_clicked(self, gesture, n_press, x, y):
+        """Handle click on a downloaded thumbnail to show preview"""
+        # Get the frame that was clicked
+        frame = gesture.get_widget()
+        if not hasattr(frame, 'filepath') or not frame.filepath:
+            return
+        
+        # Get the parent window to use as transient parent
+        toplevel = frame.get_root()
+        if toplevel and isinstance(toplevel, Gtk.Window):
+            parent_window = toplevel
+        else:
+            parent_window = None
+        
+        # Show the preview window
+        self._show_wallpaper_preview(frame.filepath, parent_window=parent_window)
     
     def _refresh_downloads_browser(self, window):
         """Refresh the downloads browser window"""
         try:
+            # Get the current window position and size
+            width, height = window.get_default_size()
+            
+            # Clean up before destroying
+            self._on_downloads_browser_close(window)
+            
+            # Destroy the current window
+            window.destroy()
+            
             # Clear the cache to force a refresh
             download_dir = self.get_wallpapers_dir()
             if download_dir in self._wallpapers_cache:
                 del self._wallpapers_cache[download_dir]
             
-            # Close the current window and open a new one
-            window.destroy()
-            self._show_downloads_browser()
+            # Open a new window with the same size
+            self._show_downloads_browser(force_refresh=True)
+            
         except Exception as e:
             logger.error(f"Error refreshing downloads browser: {e}")
             self.show_error_toast(f"Error refreshing: {e}")
-    
+   
+    def _on_downloads_browser_close(self, window):
+        """Handle cleanup when the downloads browser window is closed"""
+        try:
+            # Clear references to prevent memory leaks
+            if hasattr(window, 'wallpapers'):
+                window.wallpapers.clear()
+                
+            if hasattr(window, 'pending_thumbnails'):
+                window.pending_thumbnails.clear()
+                
+            # Clear flowbox children if it exists
+            if hasattr(window, 'flowbox') and window.flowbox:
+                child = window.flowbox.get_first_child()
+                while child is not None:
+                    next_child = child.get_next_sibling()
+                    window.flowbox.remove(child)
+                    child = next_child
+                    
+            # Clear other references
+            window.flowbox = None
+            window.viewport = None
+            window.scrolled = None
+            window.toast_overlay = None
+            
+            # Let the window be destroyed
+            return False
+        except Exception as e:
+            logger.error(f"Error cleaning up downloads browser: {e}")
+            return False
+
     def _copy_downloads_path_to_clipboard(self, window):
         """Copy the downloads path to clipboard"""
         try:
@@ -3097,7 +3187,7 @@ class WSelectorApp(Adw.Application):
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version 0.1.4", 
+        version_label = Gtk.Label(label="Version 0.1.6", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)
@@ -3185,7 +3275,6 @@ class WSelectorApp(Adw.Application):
         # Set the content and show the dialog
         about.set_child(content)
         about.present()
-
 
     def show_error(self, message):
         logger.error(message)

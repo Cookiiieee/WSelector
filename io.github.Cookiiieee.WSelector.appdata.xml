@@ -44,9 +44,23 @@
     <content_attribute id="gambling">none</content_attribute>
     <content_attribute id="discrimination">none</content_attribute>
   </content_rating>
-  <release version="0.1.5" date="2025-06-02">
-    <description>
-      <p>New release</p>
-    </description>
-  </release>
+  <releases>
+    <release version="0.1.6" date="2025-06-02">
+      <description>
+        <p>New features and improvements in this release:</p>
+        <ul>
+          <li>Redesigned downloads browser with improved thumbnail grid</li>
+          <li>Consistent thumbnail sizing and aspect ratios</li>
+          <li>Better memory management for the downloads browser</li>
+          <li>Improved lazy loading performance</li>
+          <li>Fixed memory leaks when closing the downloads window</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.5" date="2025-06-02">
+      <description>
+        <p>New release</p>
+      </description>
+    </release>
+  </releases>
 </component>
