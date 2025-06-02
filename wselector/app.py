@@ -37,7 +37,19 @@ def setup_logging():
     # Create a custom logger
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    
+
+    # Create console handler with a higher log level
+    ch = logging.StreamHandler(sys.stderr)
+    ch.setLevel(logging.DEBUG)
+
+    # Create formatter and add it to the handler
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+
+    # Add the handler to the logger
+    if not logger.handlers:
+        logger.addHandler(ch)
+
     # Create handlers
     log_file = os.path.join(log_dir, "wselector.log")
     file_handler = logging.FileHandler(log_file, mode='w')
@@ -512,8 +524,6 @@ class WSelectorApp(Adw.Application):
             # Reload with current query and first page
             self.load_wallpapers(query=self.current_query if self.current_query else None, page=1, force_reload=True)
 
-
-    
     def apply_saved_theme(self):
         """Apply the saved theme preference."""
         try:
@@ -974,42 +984,82 @@ class WSelectorApp(Adw.Application):
 
     def _on_viewport_changed(self, *args):
         """Handle viewport changes to load visible thumbnails."""
-        if not hasattr(self, 'flowbox') or not hasattr(self, 'scroll'):
+        logger.debug("=== _on_viewport_changed called ===")
+        
+        if not hasattr(self, 'flowbox'):
+            logger.warning("No flowbox found in _on_viewport_changed")
+            return
+            
+        if not hasattr(self, 'scroll'):
+            logger.warning("No scroll widget found in _on_viewport_changed")
             return
             
         # Get the viewport and visible area
         viewport = self.scroll.get_child()
         if not viewport:
+            logger.warning("No viewport child found in scroll widget")
             return
             
-        visible_rect = viewport.get_visible_rect()
+        try:
+            visible_rect = viewport.get_visible_rect()
+            logger.debug(f"Visible rect: x={visible_rect.x}, y={visible_rect.y}, width={visible_rect.width}, height={visible_rect.height}")
+        except Exception as e:
+            logger.error(f"Error getting visible rect: {e}")
+            return
         
         # Add some padding to the visible area to preload items
         padding = visible_rect.height * 0.5  # 50% of viewport height as padding
         visible_rect.y = max(0, visible_rect.y - padding)
         visible_rect.height += 2 * padding  # Add padding to both top and bottom
+        logger.debug(f"Visible rect with padding: y={visible_rect.y}, height={visible_rect.height}")
         
         # Check each widget in the flowbox
-        for child in self.flowbox.get_children():
-            if not hasattr(child, 'wp_data'):
-                continue
+        children = list(self.flowbox.get_children())
+        logger.debug(f"Found {len(children)} children in flowbox")
+        
+        visible_count = 0
+        for i, child in enumerate(children):
+            try:
+                if not hasattr(child, 'wp_path'):
+                    logger.debug(f"Child {i}: No wp_path attribute")
+                    continue
+                    
+                # Get the widget's allocation (position and size)
+                allocation = child.get_allocation()
+                if not allocation:
+                    logger.debug(f"Child {i}: No allocation")
+                    continue
+                    
+                if allocation.width <= 1 or allocation.height <= 1:
+                    logger.debug(f"Child {i}: Invalid allocation: {allocation.width}x{allocation.height}")
+                    continue
                 
-            # Get the widget's allocation (position and size)
-            allocation = child.get_allocation()
-            if not allocation or allocation.width == 1 or allocation.height == 1:
-                continue
+                # Check if widget is in the visible area (with padding)
+                child_rect = Gdk.Rectangle()
+                child_rect.x = allocation.x
+                child_rect.y = allocation.y
+                child_rect.width = allocation.width
+                child_rect.height = allocation.height
                 
-            # Check if widget is in the visible area (with padding)
-            child_rect = Gdk.Rectangle()
-            child_rect.x = allocation.x
-            child_rect.y = allocation.y
-            child_rect.width = allocation.width
-            child_rect.height = allocation.height
-            
-            if visible_rect.intersect(child_rect)[0]:  # Returns True if overlapping
-                # Load the thumbnail if not already loaded
-                if hasattr(child, 'load_async') and not hasattr(child, '_loaded'):
-                    child.load_async()
+                is_visible = visible_rect.intersect(child_rect)[0]  # Returns True if overlapping
+                logger.debug(f"Child {i}: {os.path.basename(child.wp_path)} - "
+                           f"pos=({child_rect.x},{child_rect.y}) size=({child_rect.width}x{child_rect.height}) "
+                           f"visible={is_visible}")
+                
+                if is_visible:
+                    visible_count += 1
+                    # Load the thumbnail if not already loaded
+                    if not hasattr(child, 'thumbnail_loaded'):
+                        logger.debug(f"Loading thumbnail for child {i}: {os.path.basename(child.wp_path)}")
+                        self._load_thumbnail(child, self.flowbox)
+                        child.thumbnail_loaded = True
+                    else:
+                        logger.debug(f"Thumbnail already loaded for child {i}")
+                
+            except Exception as e:
+                logger.error(f"Error processing child {i}: {e}", exc_info=True)
+        
+        logger.debug(f"Processed {len(children)} children, {visible_count} visible")
     
     def populate_flowbox(self, wallpapers):
         """Populate the flowbox with wallpapers using lazy loading."""
@@ -1033,13 +1083,36 @@ class WSelectorApp(Adw.Application):
                 self.flowbox.set_margin_top(self.margin)
                 self.flowbox.set_margin_bottom(self.margin)
                 
-                # Connect to the viewport's scroll events for lazy loading
-                if hasattr(self, 'scroll'):
-                    vadjustment = self.scroll.get_vadjustment()
-                    vadjustment.connect("value-changed", self._on_viewport_changed)
-                    
-                    # Also check when the viewport size changes
-                    self.scroll.get_child().connect("size-allocate", self._on_viewport_changed)
+                # Connect viewport change signal for lazy loading
+                vadjust = self.scroll.get_vadjustment()
+                logger.debug("Connecting viewport change signals")
+                
+                def log_viewport_signal(adj, signal_name):
+                    logger.debug(f"Viewport signal: {signal_name}")
+                    logger.debug(f"  Value: {adj.get_value()}, Upper: {adj.get_upper()}, Page Size: {adj.get_page_size()}")
+                
+                # Connect signals with logging
+                vadjust.connect("changed", lambda adj: log_viewport_signal(adj, "changed"))
+                vadjust.connect("value-changed", lambda adj: log_viewport_signal(adj, "value-changed"))
+                
+                # Connect the actual handlers after logging
+                vadjust.connect("changed", self._on_viewport_changed)
+                vadjust.connect("value-changed", self._on_viewport_changed)
+                
+                # Initial load of visible thumbnails
+                logger.info("Triggering initial viewport update")
+                def initial_load():
+                    try:
+                        logger.debug("Initial load started")
+                        if vadjust and not self.scroll.is_destroyed():
+                            self._on_viewport_changed(vadjust)
+                            logger.debug("Initial viewport update completed")
+                    except Exception as e:
+                        logger.error(f"Error in initial load: {e}", exc_info=True)
+                
+                GLib.idle_add(initial_load)
+                
+                self.scroll.get_child().connect("size-allocate", self._on_viewport_changed)
                 
                 # Add flowbox to scrollable if it's not already there
                 if hasattr(self, 'scroll') and self.scroll.get_child() is None:
@@ -2860,45 +2933,6 @@ class WSelectorApp(Adw.Application):
             # Set the window's content
             browser_window.set_content(toast_overlay)
             
-            # Connect close request to clear thumbnails
-            def on_close_request(window):
-                logger.debug("Clearing thumbnail cache and resources on window close")
-                
-                # Clear all picture data from widgets
-                for wp_path, widget in list(self._thumbnail_widgets.items()):
-                    try:
-                        if hasattr(widget, 'overlay') and widget.overlay:
-                            # In GTK4, we need to unparent all children from the overlay
-                            child = widget.overlay.get_first_child()
-                            while child is not None:
-                                next_child = child.get_next_sibling()
-                                child.unparent()  # Remove from parent in GTK4
-                                child = next_child
-                            
-                            # Clear any picture data
-                            if hasattr(widget, 'picture') and widget.picture:
-                                widget.picture.set_paintable(None)
-                                widget.picture = None
-                                
-                            # Stop and clear spinner if it exists
-                            if hasattr(widget, 'spinner') and widget.spinner:
-                                widget.spinner.stop()
-                                widget.spinner = None
-                    except Exception as e:
-                        logger.error(f"Error cleaning up widget: {e}")
-                            
-                # Clear the widgets dictionary
-                self._thumbnail_widgets.clear()
-                
-                # Force garbage collection to free up memory
-                import gc
-                gc.collect()
-                
-                logger.debug("Thumbnail cleanup completed")
-                return False  # Allow window to close
-                
-            browser_window.connect('close-request', on_close_request)
-            
             # Show the window
             browser_window.present()
             
@@ -3097,7 +3131,7 @@ class WSelectorApp(Adw.Application):
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version 0.1.3", 
+        version_label = Gtk.Label(label="Version 1.0", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)
@@ -3199,51 +3233,8 @@ class WSelectorApp(Adw.Application):
 
 
 if __name__ == "__main__":
-    app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
+    app = WSelectorApp("org.example.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
     try:
-        app.run(sys.argv)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        sys.exit(1)
-        content.append(actions_box)
-        
-        # Credits
-        credits_label = Gtk.Label(
-            label="<small>With gratitude to the Wallhaven.cc team for their amazing wallpaper collection.</small>",
-            use_markup=True,
-            margin_top=18,
-            opacity=0.6,
-            justify=Gtk.Justification.CENTER
-        )
-        content.append(credits_label)
-        
-        # Add close button to action area
-        close_btn = about.add_button("Close", Gtk.ResponseType.CLOSE)
-        close_btn.connect("clicked", lambda *_: about.destroy())
-        
-        # Set the content and show the dialog
-        about.set_child(content)
-        about.present()
-
-
-    def show_error(self, message):
-        logger.error(message)
-
-    def on_window_size_changed(self, widget, param):
-        pass
-
-    def do_startup(self):
-        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
-        Gtk.Application.do_startup(self)
-
-
-if __name__ == "__main__":
-    app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
-    try:
-        app.run(sys.argv)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        sys.exit(1)
         app.run(sys.argv)
     except Exception as e:
         logger.error(f"An error occurred: {e}")
