@@ -1,5 +1,5 @@
 # Version for the next release
-version = '0.1.3'
+version = '0.1.4'
 
 project('wselector', 'python3',
         version: version,
