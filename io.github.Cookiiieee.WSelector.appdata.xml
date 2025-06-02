@@ -44,16 +44,9 @@
     <content_attribute id="gambling">none</content_attribute>
     <content_attribute id="discrimination">none</content_attribute>
   </content_rating>
-  <releases>
-    <release version="0.1.2" date="2025-05-30">
-      <description>
-        <p>Fixed Flathub packaging issues</p>
-      </description>
-    </release>
-    <release version="0.1.0" date="2025-05-29">
-      <description>
-        <p>Initial release</p>
-      </description>
-    </release>
-  </releases>
+  <release version="0.1.5" date="2025-06-02">
+    <description>
+      <p>New release</p>
+    </description>
+  </release>
 </component>
