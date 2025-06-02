@@ -1,5 +1,5 @@
 project('wselector', 'python3',
-         version: '1.0.0',
+         version: '0.1.4',
          license: 'GPL-3.0')
 
 python = import('python')
