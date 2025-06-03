@@ -12,6 +12,7 @@ import concurrent.futures
 import tempfile
 import gi
 from datetime import datetime
+import psutil
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -25,7 +26,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from wselector.models import WallpaperInfo, WallpaperGObject
 from wselector.api import WSelectorScraper
-from wselector.utils import download_thumbnail
+from wselector.utils import download_thumbnail, check_memory_usage, manual_cleanup
 
 # Setup logging
 def setup_logging():
@@ -225,24 +226,45 @@ class WSelectorApp(Adw.Application):
         
     def on_home_clicked(self, button):
         """Handle home button click event - scroll to top of the page."""
-        if hasattr(self, 'scroll') and self.scroll:
+        if hasattr(self, 'scroll'):
             self.scroll.get_vadjustment().set_value(0)
     
     def on_refresh_clicked(self, button):
-        """Handle refresh button click event."""
-        logger.info("Refresh button clicked, reloading wallpapers")
-        # Save current scroll position
-        self.scroll_position = self.scroll.get_vadjustment().get_value()
-        # Trigger a new search with the current query
-        self.current_page = 1  # Reset to first page
-        self.search_wallpapers(refresh=True)
+        """Handle refresh button click with memory management."""
+        logger.info("Refresh button clicked - Starting memory cleanup...")
         
-        # Restore scroll position after a short delay to allow UI to update
-        def restore_scroll():
-            if hasattr(self, 'scroll') and self.scroll:
-                self.scroll.get_vadjustment().set_value(self.scroll_position)
-        GLib.timeout_add(300, restore_scroll)
-    
+        try:
+            # Show cleaning status
+            toast = Adw.Toast.new("Cleaning up memory...")
+            toast.set_timeout(1)
+            self.toast_overlay.add_toast(toast)
+            
+            # Clear wallpaper cache first
+            self.clear_wallpaper_cache()
+            
+            # Perform manual cleanup
+            from wselector.utils import manual_cleanup
+            if manual_cleanup() > 0:
+                logger.info("Manual cleanup completed successfully")
+            
+            # Reset scroll position to top
+            self.scroll.get_vadjustment().set_value(0)
+            
+            # Force a full reload of wallpapers
+            self.current_page = 1
+            self.load_wallpapers(query=self.current_query, page=1, force_reload=True)
+            
+            # Show completion message
+            toast = Adw.Toast.new("Wallpapers refreshed")
+            toast.set_timeout(2)
+            self.toast_overlay.add_toast(toast)
+            
+        except Exception as e:
+            logger.error(f"Error during refresh: {e}")
+            toast = Adw.Toast.new("Error during refresh")
+            toast.set_timeout(3)
+            self.toast_overlay.add_toast(toast)
+
     def do_activate(self):
         """Set up the application's main window."""
         # Check if window already exists
@@ -373,6 +395,28 @@ class WSelectorApp(Adw.Application):
 
         self.win.present()
 
+    def clear_wallpaper_cache(self):
+        """Clear the in-memory wallpaper cache."""
+        if hasattr(self, '_wallpapers'):
+            del self._wallpapers
+            self._wallpapers = []
+            
+        if hasattr(self, 'flowbox') and self.flowbox is not None:
+            # Get a list of all children first to avoid modification during iteration
+            children = []
+            child = self.flowbox.get_first_child()
+            while child is not None:
+                children.append(child)
+                child = child.get_next_sibling()
+                
+            # Remove all children
+            for child in children:
+                self.flowbox.remove(child)
+                
+        # Clear any thumbnail caches
+        if hasattr(self, '_thumbnail_cache'):
+            self._thumbnail_cache.clear()
+            
     def on_search_changed(self, entry):
         """Handle search entry changes"""
         # Get the search text
@@ -403,11 +447,22 @@ class WSelectorApp(Adw.Application):
         
     def _reset_scroll_position(self):
         """Reset the scroll position to the top."""
-        if hasattr(self, 'scroll'):
-            adj = self.scroll.get_vadjustment()
-            adj.set_value(0)
-            self.scroll.queue_draw()
-            logger.debug("Scroll position reset to top")
+        if not hasattr(self, 'scroll'):
+            logger.warning("Scroll widget not available for position restoration")
+            return
+            
+        scroll_pos = getattr(self, 'scroll_position', 0)
+        adj = self.scroll.get_vadjustment()
+        
+        # Use a small timeout to ensure the UI has updated
+        def set_scroll():
+            try:
+                adj.set_value(scroll_pos)
+            except Exception as e:
+                logger.error(f"Failed to restore scroll position: {e}")
+            return False  # Don't repeat
+            
+        GLib.timeout_add(100, set_scroll)
 
     def _clear_thumbnail_cache(self):
         """Clear the thumbnail cache and reset related state."""
@@ -456,20 +511,6 @@ class WSelectorApp(Adw.Application):
             
         # Return False to prevent the timeout from repeating
         return False
-
-    def on_refresh_clicked(self, button):
-        """Handle refresh button click."""
-        logger.info("Refresh button clicked")
-        
-        # Reset scroll position to top
-        self._reset_scroll_position()
-            
-        self.load_wallpapers(query=self.current_query, page=1, force_reload=True)
-        
-        # Show a toast notification
-        toast = Adw.Toast.new("Wallpapers refreshed")
-        toast.set_timeout(2)  # 2 seconds
-        self.toast_overlay.add_toast(toast)
         
     def on_search_stopped(self, entry):
         """Handle the clear button click event in the search entry."""
@@ -508,7 +549,8 @@ class WSelectorApp(Adw.Application):
                 self.flowbox.remove(child)
                 child = next_child
             # Reset scroll position to top
-            self._reset_scroll_position()
+            if hasattr(self, 'scroll'):
+                self.scroll.get_vadjustment().set_value(0)
             # Reload with current query and first page
             self.load_wallpapers(query=self.current_query if self.current_query else None, page=1, force_reload=True)
 
@@ -774,6 +816,8 @@ class WSelectorApp(Adw.Application):
             prefetch: If True, load in background without showing spinner
             force_reload: If True, force a reload even if already loading
         """
+        check_memory_usage()
+        
         # Skip if already loading the same page and not forcing a reload
         if (self.loading and not force_reload and 
             hasattr(self, 'current_query') and self.current_query == query and 
@@ -952,7 +996,9 @@ class WSelectorApp(Adw.Application):
         # Start the fetch operation in a background thread
         thread = threading.Thread(target=fetch, daemon=True)
         thread.start()
-
+        
+        check_memory_usage()
+    
     def _restore_scroll_position(self):
         """Restore the scroll position after loading new items."""
         if not hasattr(self, 'scroll'):
@@ -1227,6 +1273,8 @@ class WSelectorApp(Adw.Application):
         threading.Thread(target=download_thread, daemon=True).start()
 
     def on_scroll_changed(self, adj):
+        check_memory_usage()
+        
         try:
             # Get scroll values
             value = adj.get_value()
@@ -1407,8 +1455,9 @@ class WSelectorApp(Adw.Application):
                     self.flowbox.remove(child)
                     child = next_child
                 
-                # Reset scroll position
-                self._reset_scroll_position()
+                # Reset scroll position to top 
+                if hasattr(self, 'scroll'):
+                    self.scroll.get_vadjustment().set_value(0)
                 
                 # Reload wallpapers with current query and new preferences
                 self.load_wallpapers(query=self.current_query, page=1, force_reload=True)
@@ -1721,7 +1770,7 @@ class WSelectorApp(Adw.Application):
                 window.set_modal(True)
                 
                 # Create a vertical box for the content
-                content_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 10)
+                content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
                 content_box.set_margin_top(24)
                 content_box.set_margin_bottom(24)
                 content_box.set_margin_start(24)
@@ -1735,7 +1784,7 @@ class WSelectorApp(Adw.Application):
                 content_box.append(header)
                 
                 # Create a box for buttons
-                button_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 10)
+                button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
                 button_box.set_margin_top(12)
                 
                 # Create buttons in the desired order
@@ -1838,6 +1887,247 @@ class WSelectorApp(Adw.Application):
             self.show_error_toast(f"Error: {e}")
             return False
         
+    def _set_wallpaper_thread(self, filepath):
+        """Thread function to set the wallpaper without blocking the UI.
+        
+        Args:
+            filepath (str): Path to the wallpaper image file
+        """
+        try:
+            logger.info(f"Attempting to set wallpaper: {filepath}")
+            
+            # First try the xdg-desktop-portal method
+            if os.path.exists('/.flatpak-info'):
+                logger.info("Running in Flatpak environment")
+                
+                # Convert to URI format
+                file_uri = f"file://{filepath}"
+                
+                # Try GNOME method first (most common for Flatpak)
+                try:
+                    # Set wallpaper for light mode
+                    result = subprocess.run(
+                        ["flatpak-spawn", "--host", "gsettings", "set", 
+                         "org.gnome.desktop.background", "picture-uri", f"'{file_uri}'"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    
+                    if result.returncode == 0:
+                        # Set for dark mode if supported (GNOME 42+)
+                        subprocess.run(
+                            ["flatpak-spawn", "--host", "gsettings", "set", 
+                             "org.gnome.desktop.background", "picture-uri-dark", f"'{file_uri}'"],
+                            capture_output=True
+                        )
+                        
+                        # Set the picture options (zoom, centered, scaled, etc.)
+                        subprocess.run(
+                            ["flatpak-spawn", "--host", "gsettings", "set", 
+                             "org.gnome.desktop.background", "picture-options", "'zoom'"],
+                            capture_output=True
+                        )
+                        
+                        logger.info("Successfully set wallpaper using GNOME method")
+                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                        return
+                        
+                except Exception as e:
+                    logger.warning(f"GNOME method failed: {e}")
+                
+                # Fallback to xdg-desktop-portal method
+                try:
+                    logger.info("Trying xdg-desktop-portal method")
+                    result = subprocess.run([
+                        'dbus-send', '--session',
+                        '--print-reply=literal',
+                        '--dest=org.freedesktop.portal.Desktop',
+                        '/org/freedesktop/portal/desktop',
+                        'org.freedesktop.portal.Background.SetBackground',
+                        f'string:{file_uri}'
+                    ], capture_output=True, text=True, timeout=10)
+                    
+                    logger.info(f"Portal call result: {result.returncode}")
+                    if result.returncode == 0:
+                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                        return
+                    
+                    if result.stderr:
+                        logger.error(f"Portal error: {result.stderr}")
+                        
+                except Exception as e:
+                    logger.error(f"Portal method failed: {e}")
+            
+            # If we're here, Flatpak methods failed or we're not in Flatpak
+            # Try to detect desktop environment and use appropriate method
+            try:
+                desktop_env = self._detect_desktop_environment()
+                logger.info(f"Detected desktop environment: {desktop_env}")
+                
+                if "gnome" in desktop_env or "ubuntu" in desktop_env or "pop" in desktop_env:
+                    # GNOME/Unity/Cinnamon/MATE/Budgie
+                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", f"file://{filepath}"])
+                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", f"file://{filepath}"])
+                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "zoom"])
+                elif "kde" in desktop_env or "plasma" in desktop_env:
+                    # KDE Plasma
+                    subprocess.run(["plasma-apply-wallpaperimage", filepath])
+                elif "xfce" in desktop_env:
+                    # XFCE
+                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", 
+                                  "/backdrop/screen0/monitor0/workspace0/last-image", "-s", filepath])
+                else:
+                    # Try feh as a last resort (common in minimal WMs)
+                    subprocess.run(["feh", "--bg-fill", filepath])
+                
+                logger.info(f"Wallpaper set using {desktop_env} method")
+                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                return
+                
+            except Exception as e:
+                logger.error(f"Error setting wallpaper: {e}")
+                raise Exception("Could not set wallpaper automatically")
+            
+        except Exception as error:
+            logger.error(f"Error in wallpaper thread: {error}", exc_info=True)
+            GLib.idle_add(lambda: self.show_error_toast("Could not set wallpaper automatically"))
+            GLib.idle_add(lambda: self._show_wallpaper_instructions_dialog(filepath))
+        finally:
+            # Reset the flag when done
+            self._is_setting_wallpaper = False
+    
+    def _set_as_background(self, filepath, parent_window=None):
+        """Set the wallpaper as the desktop background
+        
+        Args:
+            filepath (str): Path to the wallpaper image file
+            parent_window: Optional parent window for dialogs
+            
+        Returns:
+            bool: True if the wallpaper setting process was started successfully, False otherwise
+        """
+        # Use a flag to prevent multiple simultaneous executions
+        if hasattr(self, '_is_setting_wallpaper') and self._is_setting_wallpaper:
+            logger.info("Wallpaper setting already in progress, skipping duplicate request")
+            return False
+            
+        try:
+            self._is_setting_wallpaper = True
+            logger.info(f"Setting wallpaper as background: {filepath}")
+            
+            # Show a single notification
+            self.show_info_toast("Setting wallpaper...")
+            
+            # Start the thread to avoid blocking the UI
+            threading.Thread(
+                target=self._set_wallpaper_thread,
+                args=(filepath,),
+                daemon=True
+            ).start()
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error setting wallpaper as background: {e}")
+            self.show_error_toast(f"Error setting wallpaper: {e}")
+            self._show_wallpaper_instructions_dialog(filepath)
+            self._is_setting_wallpaper = False
+            return False
+            
+    def _detect_desktop_environment(self):
+        """Detect the current desktop environment.
+        
+        Returns:
+            str: The name of the desktop environment (gnome, kde, xfce, etc.)
+        """
+        desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
+        
+        if 'gnome' in desktop or 'ubuntu' in desktop or 'pop' in desktop:
+            return 'gnome'
+        elif 'kde' in desktop or 'plasma' in desktop:
+            return 'kde'
+        elif 'xfce' in desktop:
+            return 'xfce'
+        elif 'cinnamon' in desktop:
+            return 'cinnamon'
+        elif 'mate' in desktop:
+            return 'mate'
+        elif 'budgie' in desktop:
+            return 'budgie'
+            
+        # Fallback to checking for common processes
+        try:
+            import psutil
+            for proc in psutil.process_iter(['name']):
+                name = proc.info['name'].lower()
+                if 'gnome' in name:
+                    return 'gnome'
+                elif 'kde' in name or 'plasma' in name:
+                    return 'kde'
+                elif 'xfce' in name:
+                    return 'xfce'
+        except (ImportError, psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+            
+        return 'unknown'
+        
+    def _show_wallpaper_instructions_dialog(self, filepath):
+        """Show a dialog with instructions for manually setting the wallpaper"""
+        try:
+            # Create a dialog with instructions
+            dialog = Adw.MessageDialog.new(self.props.active_window)
+            dialog.set_heading("Set Wallpaper Manually")
+            
+            # Create message with the file path
+            message = f"The wallpaper is saved at:\n{filepath}\n\nTo set it as your desktop background:\n\n"
+            message += "1. Open Settings\n"
+            message += "2. Go to Background\n"
+            message += "3. Click Add Picture\n"
+            message += "4. Navigate to the path above\n"
+            message += "5. Select the wallpaper and click Open"
+            
+            dialog.set_body(message)
+            
+            # Add a Copy Path button
+            dialog.add_response("copy", "Copy Path")
+            dialog.add_response("close", "Close")
+            dialog.set_default_response("close")
+            dialog.set_close_response("close")
+            
+            # Handle dialog response
+            def on_dialog_response(dialog, response):
+                if response == "copy":
+                    # Copy the path to clipboard
+                    clipboard = Gdk.Display.get_default().get_clipboard()
+                    clipboard.set(filepath)
+                    
+                    # Show confirmation toast
+                    copy_toast = Adw.Toast.new("Path copied to clipboard")
+                    copy_toast.set_timeout(2)
+                    self.toast_overlay.add_toast(copy_toast)
+                    
+                    # Keep the dialog open
+                    return True
+                return False
+            
+            dialog.connect("response", on_dialog_response)
+            dialog.present()
+            
+        except Exception as e:
+            logger.error(f"Error showing instructions dialog: {e}")
+            
+    def show_info_toast(self, message):
+        """Show an informational toast notification"""
+        toast = Adw.Toast.new(message)
+        toast.set_timeout(1)
+        self.toast_overlay.add_toast(toast)
+    
+    def show_success_toast(self, message):
+        """Show a success toast notification"""
+        toast = Adw.Toast.new(message)
+        toast.set_timeout(3)
+        self.toast_overlay.add_toast(toast)
+        
     def _show_wallpaper_preview(self, filepath, parent_window=None, wallpaper_list=None, current_index=0):
         """Show a preview of the wallpaper in a new window with navigation
         
@@ -1891,7 +2181,7 @@ class WSelectorApp(Adw.Application):
         logger.info(f"Preview window created with {len(wallpaper_list)} wallpapers, starting at index {current_index}")
         
         # Main vertical box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         main_box.set_margin_top(10)
         main_box.set_margin_bottom(10)
         main_box.set_margin_start(10)
@@ -1903,8 +2193,8 @@ class WSelectorApp(Adw.Application):
         scrolled.set_hexpand(True)
         scrolled.set_vexpand(True)
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        main_box.append(scrolled)
-        
+        main_box.append(scrolled)        
+
         # Create a viewport to handle the image
         viewport = Gtk.Viewport()
         scrolled.set_child(viewport)
@@ -1969,7 +2259,11 @@ class WSelectorApp(Adw.Application):
         set_bg_button.set_margin_end(12)
         set_bg_button.set_size_request(180, 48)  # Wider button for better touch targets
         set_bg_button.connect("clicked", 
-            lambda *_: self._set_as_background(wallpaper_list[preview_window.current_index], preview_window))
+            lambda *_: self._set_as_background(
+                preview_window.wallpaper_list[preview_window.current_index], 
+                preview_window
+            )
+        )
         nav_box.append(set_bg_button)
         preview_window.set_bg_button = set_bg_button
         
@@ -2263,43 +2557,6 @@ class WSelectorApp(Adw.Application):
             # Reset the flag when done
             self._is_setting_wallpaper = False
     
-    def _set_as_background(self, filepath, parent_window=None):
-        """Set the wallpaper as the desktop background
-        
-        Args:
-            filepath (str): Path to the wallpaper image file
-            parent_window: Optional parent window for dialogs
-            
-        Returns:
-            bool: True if the wallpaper setting process was started successfully, False otherwise
-        """
-        # Use a flag to prevent multiple simultaneous executions
-        if hasattr(self, '_is_setting_wallpaper') and self._is_setting_wallpaper:
-            logger.info("Wallpaper setting already in progress, skipping duplicate request")
-            return False
-            
-        try:
-            self._is_setting_wallpaper = True
-            logger.info(f"Setting wallpaper as background: {filepath}")
-            
-            # Show a single notification
-            self.show_info_toast("Setting wallpaper...")
-            
-            # Start the thread to avoid blocking the UI
-            threading.Thread(
-                target=self._set_wallpaper_thread,
-                args=(filepath,),
-                daemon=True
-            ).start()
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error setting wallpaper as background: {e}")
-            self.show_error_toast(f"Error setting wallpaper: {e}")
-            self._show_wallpaper_instructions_dialog(filepath)
-            self._is_setting_wallpaper = False
-            return False
-            
     def _detect_desktop_environment(self):
         """Detect the current desktop environment.
         
@@ -2336,63 +2593,6 @@ class WSelectorApp(Adw.Application):
             pass
             
         return 'unknown'
-        
-    def _show_wallpaper_instructions_dialog(self, filepath):
-        """Show a dialog with instructions for manually setting the wallpaper"""
-        try:
-            # Create a dialog with instructions
-            dialog = Adw.MessageDialog.new(self.props.active_window)
-            dialog.set_heading("Set Wallpaper Manually")
-            
-            # Create message with the file path
-            message = f"The wallpaper is saved at:\n{filepath}\n\nTo set it as your desktop background:\n\n"
-            message += "1. Open Settings\n"
-            message += "2. Go to Background\n"
-            message += "3. Click Add Picture\n"
-            message += "4. Navigate to the path above\n"
-            message += "5. Select the wallpaper and click Open"
-            
-            dialog.set_body(message)
-            
-            # Add a Copy Path button
-            dialog.add_response("copy", "Copy Path")
-            dialog.add_response("close", "Close")
-            dialog.set_default_response("close")
-            dialog.set_close_response("close")
-            
-            # Handle dialog response
-            def on_dialog_response(dialog, response):
-                if response == "copy":
-                    # Copy the path to clipboard
-                    clipboard = Gdk.Display.get_default().get_clipboard()
-                    clipboard.set(filepath)
-                    
-                    # Show confirmation toast
-                    copy_toast = Adw.Toast.new("Path copied to clipboard")
-                    copy_toast.set_timeout(2)
-                    self.toast_overlay.add_toast(copy_toast)
-                    
-                    # Keep the dialog open
-                    return True
-                return False
-            
-            dialog.connect("response", on_dialog_response)
-            dialog.present()
-            
-        except Exception as e:
-            logger.error(f"Error showing instructions dialog: {e}")
-            
-    def show_info_toast(self, message):
-        """Show an informational toast notification"""
-        toast = Adw.Toast.new(message)
-        toast.set_timeout(2)
-        self.toast_overlay.add_toast(toast)
-    
-    def show_success_toast(self, message):
-        """Show a success toast notification"""
-        toast = Adw.Toast.new(message)
-        toast.set_timeout(3)
-        self.toast_overlay.add_toast(toast)
         
     def _show_wallpaper_context_menu(self, filepath, gesture, x, y):
         """Show a context menu for a wallpaper"""
@@ -2633,8 +2833,20 @@ class WSelectorApp(Adw.Application):
                 
     def _show_downloads_browser(self, force_refresh=False):
         """Show a file browser for the downloaded wallpapers with lazy loading"""
+        check_memory_usage()
+    
         try:
             logger.info("Showing downloads browser with lazy loading")
+            
+            # Create the window if it doesn't exist
+            if not hasattr(self, 'downloads_window') or force_refresh:
+                self.downloads_window = Gtk.Window()
+                self.downloads_window.set_title("Downloads")
+                self.downloads_window.set_default_size(1200, 800)
+                self.downloads_window.set_resizable(True)
+                
+                # Connect close handler
+                self.downloads_window.connect("close-request", self._on_downloads_close)
             
             # Clear cache if force refresh is requested
             if force_refresh:
@@ -2772,6 +2984,12 @@ class WSelectorApp(Adw.Application):
             logger.error(f"Error showing downloads browser: {e}")
             self.show_error_toast(f"Error showing downloads: {e}")
 
+    def _on_downloads_close(self, window):
+        """Clean up resources when downloads window is closed"""
+        logger.info("Cleaning up downloads browser resources")
+        check_memory_usage()  # This will trigger memory cleanup
+        return False  # Allow window to close
+
     def _add_thumbnail_placeholder(self, flowbox, index, browser_window):
         """Add a placeholder widget for lazy loading"""
         # Main container box
@@ -2858,17 +3076,17 @@ class WSelectorApp(Adw.Application):
         
         browser_window.loading = False
 
-    def _load_thumbnail_sync(self, filepath, mtime, widget):
+    def _load_thumbnail_sync(self, filepath, mtime, flowbox):
         """Load thumbnail synchronously (run in thread)"""
         try:
             # Load larger thumbnail to match main window
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                 filepath, 400, 400, True  # Larger size for better quality
             )
-            return (filepath, pixbuf, widget, None)
+            return (filepath, pixbuf, flowbox, None)
         except Exception as e:
             logger.error(f"Error loading thumbnail for {filepath}: {e}")
-            return (filepath, None, widget, str(e))
+            return (filepath, None, flowbox, str(e))
 
     def _on_thumbnail_loaded(self, future, browser_window, index):
         """Callback when thumbnail loading is complete"""
@@ -3039,7 +3257,7 @@ class WSelectorApp(Adw.Application):
         except Exception as e:
             logger.error(f"Error copying path to clipboard: {e}")
             self.show_error_toast(f"Error copying path: {e}")
-    
+
     def _open_downloads_folder(self):
         """Open the downloads folder in the system file manager."""
         try:
@@ -3070,20 +3288,6 @@ class WSelectorApp(Adw.Application):
             self.show_error_toast(f"Error: {str(e)}")
             return False
 
-    def _on_browser_window_resize(self, window, param):
-        """Handle window resize events for the downloads browser"""
-        try:
-            # Access the flowbox through the browser_data attribute
-            if hasattr(window, 'browser_data') and hasattr(window.browser_data, 'flowbox'):
-                # Let the flowbox handle its own layout based on available space
-                # This matches the behavior of the main window's flowbox
-                # No need to manually calculate columns
-                pass
-            else:
-                logger.warning("Could not find flowbox in browser_data")
-        except Exception as e:
-            logger.error(f"Error handling window resize: {e}")
-        
     def _try_open_with_app_info(self, folder_path, command):
         """Try to open a folder using Gio.AppInfo.create_from_commandline"""
         try:
@@ -3111,10 +3315,8 @@ class WSelectorApp(Adw.Application):
         try:
             logger.info("Trying to open folder with Flatpak portal")
             
-            # Create a file URI for the folder
-            from urllib.parse import quote
-            encoded_path = quote(folder_path)
-            file_uri = f"file://{encoded_path}"
+            # Convert to URI format
+            file_uri = f"file://{folder_path}"
             logger.info(f"Opening URI: {file_uri}")
             
             # Use Gtk.UriLauncher which is designed to work with Flatpak portals
@@ -3222,7 +3424,9 @@ class WSelectorApp(Adw.Application):
             try:
                 # First try with xdg-open which is more reliable in Flatpak
                 import subprocess
-                subprocess.Popen(['xdg-open', uri])
+                subprocess.Popen(['xdg-open', uri], 
+                              stdout=subprocess.PIPE, 
+                              stderr=subprocess.PIPE)
             except Exception as e:
                 # Fallback to Gtk.show_uri if xdg-open fails
                 try:
@@ -3290,49 +3494,6 @@ class WSelectorApp(Adw.Application):
 if __name__ == "__main__":
     app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
     try:
-        app.run(sys.argv)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        sys.exit(1)
-        content.append(actions_box)
-        
-        # Credits
-        credits_label = Gtk.Label(
-            label="<small>With gratitude to the Wallhaven.cc team for their amazing wallpaper collection.</small>",
-            use_markup=True,
-            margin_top=18,
-            opacity=0.6,
-            justify=Gtk.Justification.CENTER
-        )
-        content.append(credits_label)
-        
-        # Add close button to action area
-        close_btn = about.add_button("Close", Gtk.ResponseType.CLOSE)
-        close_btn.connect("clicked", lambda *_: about.destroy())
-        
-        # Set the content and show the dialog
-        about.set_child(content)
-        about.present()
-
-
-    def show_error(self, message):
-        logger.error(message)
-
-    def on_window_size_changed(self, widget, param):
-        pass
-
-    def do_startup(self):
-        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
-        Gtk.Application.do_startup(self)
-
-
-if __name__ == "__main__":
-    app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
-    try:
-        app.run(sys.argv)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        sys.exit(1)
         app.run(sys.argv)
     except Exception as e:
         logger.error(f"An error occurred: {e}")
