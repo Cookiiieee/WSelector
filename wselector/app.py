@@ -2151,7 +2151,7 @@ class WSelectorApp(Adw.Application):
                     os.path.join(wallpapers_dir, f) 
                     for f in os.listdir(wallpapers_dir) 
                     if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
-                ])
+                ], key=os.path.getmtime, reverse=True)
                 # Find the current file in the list
                 try:
                     current_index = wallpaper_list.index(os.path.abspath(filepath))
@@ -2192,9 +2192,7 @@ class WSelectorApp(Adw.Application):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_hexpand(True)
         scrolled.set_vexpand(True)
-        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        main_box.append(scrolled)        
-
+        
         # Create a viewport to handle the image
         viewport = Gtk.Viewport()
         scrolled.set_child(viewport)
@@ -3389,7 +3387,7 @@ class WSelectorApp(Adw.Application):
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version 0.1.6", 
+        version_label = Gtk.Label(label="Version v0.1.8", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)

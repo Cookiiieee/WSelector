@@ -3,29 +3,28 @@
     "runtime": "org.gnome.Platform",
     "runtime-version": "48",
     "sdk": "org.gnome.Sdk",
-    "branch": "main",
     "command": "wselector",
-    "tags": ["v0.1.6"],
+    "tags": ["v0.1.8"],
     "sources": [
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "tag": "v0.1.6"
+            "tag": "v0.1.8"
         }
     ],
     "finish-args": [
         "--share=network",
         "--socket=wayland",
+        "--share=ipc",
         "--socket=fallback-x11",
+        "--socket=session-bus",
         "--filesystem=xdg-pictures/WSelector:create",
         "--filesystem=xdg-cache/wselector:create",
         "--filesystem=xdg-config/wselector:create",
         "--filesystem=xdg-data/wselector:create",
-        "--filesystem=xdg-pictures/wallpapers:ro",
-        "--talk-name=org.freedesktop.portal.Desktop",
+        "--talk-name=org.freedesktop.portal.settings",
         "--system-talk-name=org.freedesktop.Notifications",
         "--talk-name=org.gnome.SessionManager",
-        "--talk-name=org.gnome.SettingsDaemon.MediaKeys",
         "--talk-name=org.gtk.Actions",
         "--talk-name=org.freedesktop.FileManager1"
     ],
@@ -37,55 +36,44 @@
         "/bin/*.pyc",
         "/bin/__pycache__"
     ],
+    "build-options": {
+        "env": {
+            "PYTHONPATH": "/app/lib/python3.12/site-packages"
+        },
+        "build-args": [
+            "--share=network"
+        ]
+    },
     "modules": [
         {
-            "name": "python-deps",
+            "name": "python3-base",
             "buildsystem": "simple",
-            "build-options": {
-                "env": {
-                    "http_proxy": "",
-                    "https_proxy": "",
-                    "no_proxy": ""
-                },
-                "build-args": ["--share=network"]
-            },
             "build-commands": [
-                "pip3 install --no-cache-dir --prefix=/app requests>=2.31.0 beautifulsoup4>=4.13.4 psutil>=7.0.0",
-                "find /app -type f -name '*.pyc' -delete"
+                "pip3 install --prefix=${FLATPAK_DEST} requests beautifulsoup4 psutil"
             ]
         },
         {
-            "name": "WSelector",
+            "name": "wselector",
             "buildsystem": "simple",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/Cookiiieee/WSelector.git",
+                    "tag": "v0.1.8"
+                }
+            ],
             "build-commands": [
                 "mkdir -p ${FLATPAK_DEST}/bin",
                 "mkdir -p ${FLATPAK_DEST}/lib/python3.12/site-packages",
-                "mkdir -p ${FLATPAK_DEST}/share/icons/hicolor/{16x16,32x32,48x48,64x64,96x96,128x128,192x192,256x256,512x512,scalable}/apps",
-                "mkdir -p ${FLATPAK_DEST}/share/applications",
-                "mkdir -p ${FLATPAK_DEST}/share/metainfo",
                 "cp -r wselector ${FLATPAK_DEST}/lib/python3.12/site-packages/",
                 "chmod +x install-icons.sh",
                 "./install-icons.sh ${FLATPAK_DEST}",
                 "install -Dm644 wselector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
                 "install -Dm644 io.github.Cookiiieee.WSelector.appdata.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.appdata.xml",
                 "update-desktop-database ${FLATPAK_DEST}/share/applications",
-                "mkdir -p ${FLATPAK_DEST}/app/bin",
-                "echo '#!/bin/sh\nPYTHONPATH=/app/lib/python3.12/site-packages\nexec /usr/bin/python3 -m wselector \"$@\"' > ${FLATPAK_DEST}/bin/wselector",
+                "echo '#!/bin/sh' > ${FLATPAK_DEST}/bin/wselector",
+                "echo 'PYTHONPATH=/app/lib/python3.12/site-packages exec /usr/bin/python3 -m wselector \"$@\"' >> ${FLATPAK_DEST}/bin/wselector",
                 "chmod +x ${FLATPAK_DEST}/bin/wselector"
-            ],
-            "sources": [
-                {
-                    "type": "file",
-                    "path": "io.github.Cookiiieee.WSelector.appdata.xml"
-                },
-                {
-                    "type": "file",
-                    "path": "screenshots/screenshot.png"
-                },
-                {
-                    "type": "dir",
-                    "path": "."
-                }
             ]
         }
     ]
