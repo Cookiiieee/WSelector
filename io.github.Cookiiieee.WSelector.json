@@ -9,6 +9,18 @@
             "--share=network"
         ]
     },
+    "finish-args": [
+        "--share=network",
+        "--socket=wayland",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=session-bus",
+        "--filesystem=xdg-pictures/WSelector:create",
+        "--talk-name=org.freedesktop.Notifications",
+        "--talk-name=org.freedesktop.portal.settings",
+        "--talk-name=org.freedesktop.FileManager1",
+        "--talk-name=org.gtk.Actions"
+    ],
     "modules": [
         {
             "name": "python-deps",
@@ -24,7 +36,7 @@
                 {
                     "type": "git",
                     "url": "https://github.com/Cookiiieee/WSelector.git",
-                    "branch": "main"
+                    "commit": "09e4f7ca600020fbd11ce1dbd1ab02840c8ccf9f"
                 }
             ],
             "build-commands": [
@@ -43,18 +55,6 @@
                 "chmod +x ${FLATPAK_DEST}/bin/wselector"
             ]
         }
-    ],
-    "finish-args": [
-        "--share=network",
-        "--socket=wayland",
-        "--share=ipc",
-        "--socket=fallback-x11",
-        "--socket=session-bus",
-        "--filesystem=xdg-pictures/WSelector:create",
-        "--talk-name=org.freedesktop.Notifications",
-        "--talk-name=org.freedesktop.portal.settings",
-        "--talk-name=org.freedesktop.FileManager1",
-        "--talk-name=org.gtk.Actions"
     ],
     "cleanup": [
         "/share/man",
