@@ -14,7 +14,7 @@
             "name": "python-deps",
             "buildsystem": "simple",
             "build-commands": [
-                "python3 -m pip install --prefix=${FLATPAK_DEST} --no-deps --no-binary :all: requests beautifulsoup4 psutil"
+                "python3 -m pip install --prefix=${FLATPAK_DEST} --no-binary :all: urllib3 charset-normalizer certifi idna requests beautifulsoup4 psutil"
             ]
         },
         {
