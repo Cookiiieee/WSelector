@@ -10,7 +10,7 @@
 ##  Screenshot
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/Cookiiieee/flathub/wselector-new-pr/screenshots/screenshot.png">
+<img src="https://raw.githubusercontent.com/Cookiiieee/wselector/screenshots/screenshot.png">
 </div>
 
 ## ✨ Features
