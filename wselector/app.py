@@ -1886,116 +1886,6 @@ class WSelectorApp(Adw.Application):
             logger.error(f"Error handling location action: {e}")
             self.show_error_toast(f"Error: {e}")
             return False
-        
-    def _set_wallpaper_thread(self, filepath):
-        """Thread function to set the wallpaper without blocking the UI.
-        
-        Args:
-            filepath (str): Path to the wallpaper image file
-        """
-        try:
-            logger.info(f"Attempting to set wallpaper: {filepath}")
-            
-            # First try the xdg-desktop-portal method
-            if os.path.exists('/.flatpak-info'):
-                logger.info("Running in Flatpak environment")
-                
-                # Convert to URI format
-                file_uri = f"file://{filepath}"
-                
-                # Try GNOME method first (most common for Flatpak)
-                try:
-                    # Set wallpaper for light mode
-                    result = subprocess.run(
-                        ["flatpak-spawn", "--host", "gsettings", "set", 
-                         "org.gnome.desktop.background", "picture-uri", f"'{file_uri}'"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    
-                    if result.returncode == 0:
-                        # Set for dark mode if supported (GNOME 42+)
-                        subprocess.run(
-                            ["flatpak-spawn", "--host", "gsettings", "set", 
-                             "org.gnome.desktop.background", "picture-uri-dark", f"'{file_uri}'"],
-                            capture_output=True
-                        )
-                        
-                        # Set the picture options (zoom, centered, scaled, etc.)
-                        subprocess.run(
-                            ["flatpak-spawn", "--host", "gsettings", "set", 
-                             "org.gnome.desktop.background", "picture-options", "'zoom'"],
-                            capture_output=True
-                        )
-                        
-                        logger.info("Successfully set wallpaper using GNOME method")
-                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                        return
-                        
-                except Exception as e:
-                    logger.warning(f"GNOME method failed: {e}")
-                
-                # Fallback to xdg-desktop-portal method
-                try:
-                    logger.info("Trying xdg-desktop-portal method")
-                    result = subprocess.run([
-                        'dbus-send', '--session',
-                        '--print-reply=literal',
-                        '--dest=org.freedesktop.portal.Desktop',
-                        '/org/freedesktop/portal/desktop',
-                        'org.freedesktop.portal.Background.SetBackground',
-                        f'string:{file_uri}'
-                    ], capture_output=True, text=True, timeout=10)
-                    
-                    logger.info(f"Portal call result: {result.returncode}")
-                    if result.returncode == 0:
-                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                        return
-                    
-                    if result.stderr:
-                        logger.error(f"Portal error: {result.stderr}")
-                        
-                except Exception as e:
-                    logger.error(f"Portal method failed: {e}")
-            
-            # If we're here, Flatpak methods failed or we're not in Flatpak
-            # Try to detect desktop environment and use appropriate method
-            try:
-                desktop_env = self._detect_desktop_environment()
-                logger.info(f"Detected desktop environment: {desktop_env}")
-                
-                if "gnome" in desktop_env or "ubuntu" in desktop_env or "pop" in desktop_env:
-                    # GNOME/Unity/Cinnamon/MATE/Budgie
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", f"file://{filepath}"])
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", f"file://{filepath}"])
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "zoom"])
-                elif "kde" in desktop_env or "plasma" in desktop_env:
-                    # KDE Plasma
-                    subprocess.run(["plasma-apply-wallpaperimage", filepath])
-                elif "xfce" in desktop_env:
-                    # XFCE
-                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", 
-                                  "/backdrop/screen0/monitor0/workspace0/last-image", "-s", filepath])
-                else:
-                    # Try feh as a last resort (common in minimal WMs)
-                    subprocess.run(["feh", "--bg-fill", filepath])
-                
-                logger.info(f"Wallpaper set using {desktop_env} method")
-                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                return
-                
-            except Exception as e:
-                logger.error(f"Error setting wallpaper: {e}")
-                raise Exception("Could not set wallpaper automatically")
-            
-        except Exception as error:
-            logger.error(f"Error in wallpaper thread: {error}", exc_info=True)
-            GLib.idle_add(lambda: self.show_error_toast("Could not set wallpaper automatically"))
-            GLib.idle_add(lambda: self._show_wallpaper_instructions_dialog(filepath))
-        finally:
-            # Reset the flag when done
-            self._is_setting_wallpaper = False
     
     def _set_as_background(self, filepath, parent_window=None):
         """Set the wallpaper as the desktop background
@@ -2033,43 +1923,6 @@ class WSelectorApp(Adw.Application):
             self._show_wallpaper_instructions_dialog(filepath)
             self._is_setting_wallpaper = False
             return False
-            
-    def _detect_desktop_environment(self):
-        """Detect the current desktop environment.
-        
-        Returns:
-            str: The name of the desktop environment (gnome, kde, xfce, etc.)
-        """
-        desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
-        
-        if 'gnome' in desktop or 'ubuntu' in desktop or 'pop' in desktop:
-            return 'gnome'
-        elif 'kde' in desktop or 'plasma' in desktop:
-            return 'kde'
-        elif 'xfce' in desktop:
-            return 'xfce'
-        elif 'cinnamon' in desktop:
-            return 'cinnamon'
-        elif 'mate' in desktop:
-            return 'mate'
-        elif 'budgie' in desktop:
-            return 'budgie'
-            
-        # Fallback to checking for common processes
-        try:
-            import psutil
-            for proc in psutil.process_iter(['name']):
-                name = proc.info['name'].lower()
-                if 'gnome' in name:
-                    return 'gnome'
-                elif 'kde' in name or 'plasma' in name:
-                    return 'kde'
-                elif 'xfce' in name:
-                    return 'xfce'
-        except (ImportError, psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-            
-        return 'unknown'
         
     def _show_wallpaper_instructions_dialog(self, filepath):
         """Show a dialog with instructions for manually setting the wallpaper"""
@@ -2456,68 +2309,43 @@ class WSelectorApp(Adw.Application):
         try:
             logger.info(f"Attempting to set wallpaper: {filepath}")
             
-            # First try the xdg-desktop-portal method
+            # Convert to URI format
+            file_uri = f"file://{filepath}"
+            
+            # Try Gio.Settings method first (cleanest approach)
+            try:
+                settings = Gio.Settings.new('org.gnome.desktop.background')
+                settings.set_string('picture-uri', file_uri)
+                settings.set_string('picture-uri-dark', file_uri)  # For dark mode
+                settings.set_string('picture-options', 'zoom')
+                settings.apply()
+                logger.info("Successfully set wallpaper using Gio.Settings")
+                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                return
+            except Exception as e:
+                logger.warning(f"Gio.Settings method failed: {e}")
+            
+            # Fallback to flatpak-spawn if in Flatpak
             if os.path.exists('/.flatpak-info'):
-                logger.info("Running in Flatpak environment")
-                
-                # Convert to URI format
-                file_uri = f"file://{filepath}"
-                
-                # Try GNOME method first (most common for Flatpak)
                 try:
-                    # Set wallpaper for light mode
-                    result = subprocess.run(
-                        ["flatpak-spawn", "--host", "gsettings", "set", 
-                         "org.gnome.desktop.background", "picture-uri", f"'{file_uri}'"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    
-                    if result.returncode == 0:
-                        # Set for dark mode if supported (GNOME 42+)
-                        subprocess.run(
-                            ["flatpak-spawn", "--host", "gsettings", "set", 
-                             "org.gnome.desktop.background", "picture-uri-dark", f"'{file_uri}'"],
-                            capture_output=True
-                        )
-                        
-                        # Set the picture options (zoom, centered, scaled, etc.)
-                        subprocess.run(
-                            ["flatpak-spawn", "--host", "gsettings", "set", 
-                             "org.gnome.desktop.background", "picture-options", "'zoom'"],
-                            capture_output=True
-                        )
-                        
-                        logger.info("Successfully set wallpaper using GNOME method")
-                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                        return
-                        
+                    logger.info("Trying flatpak-spawn gsettings method")
+                    subprocess.run([
+                        "flatpak-spawn", "--host", "gsettings", "set", 
+                        "org.gnome.desktop.background", "picture-uri", f"'{file_uri}'"
+                    ], check=True)
+                    subprocess.run([
+                        "flatpak-spawn", "--host", "gsettings", "set", 
+                        "org.gnome.desktop.background", "picture-uri-dark", f"'{file_uri}'"
+                    ], check=True)
+                    subprocess.run([
+                        "flatpak-spawn", "--host", "gsettings", "set", 
+                        "org.gnome.desktop.background", "picture-options", "'zoom'"
+                    ], check=True)
+                    logger.info("Successfully set wallpaper using flatpak-spawn")
+                    GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                    return
                 except Exception as e:
-                    logger.warning(f"GNOME method failed: {e}")
-                
-                # Fallback to xdg-desktop-portal method
-                try:
-                    logger.info("Trying xdg-desktop-portal method")
-                    result = subprocess.run([
-                        'dbus-send', '--session',
-                        '--print-reply=literal',
-                        '--dest=org.freedesktop.portal.Desktop',
-                        '/org/freedesktop/portal/desktop',
-                        'org.freedesktop.portal.Background.SetBackground',
-                        f'string:{file_uri}'
-                    ], capture_output=True, text=True, timeout=10)
-                    
-                    logger.info(f"Portal call result: {result.returncode}")
-                    if result.returncode == 0:
-                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                        return
-                    
-                    if result.stderr:
-                        logger.error(f"Portal error: {result.stderr}")
-                        
-                except Exception as e:
-                    logger.error(f"Portal method failed: {e}")
+                    logger.error(f"flatpak-spawn method failed: {e}")
             
             # If we're here, Flatpak methods failed or we're not in Flatpak
             # Try to detect desktop environment and use appropriate method
@@ -3112,7 +2940,7 @@ class WSelectorApp(Adw.Application):
             
         except Exception as e:
             logger.error(f"Error in thumbnail callback: {e}")
-
+    
     def _update_thumbnail_widget(self, widget, pixbuf, filename):
         """Update the widget with the loaded thumbnail"""
         # Clear existing content
