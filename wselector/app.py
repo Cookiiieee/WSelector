@@ -2151,7 +2151,7 @@ class WSelectorApp(Adw.Application):
                     os.path.join(wallpapers_dir, f) 
                     for f in os.listdir(wallpapers_dir) 
                     if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
-                ], key=os.path.getmtime, reverse=True)
+                ])
                 # Find the current file in the list
                 try:
                     current_index = wallpaper_list.index(os.path.abspath(filepath))
@@ -2181,7 +2181,7 @@ class WSelectorApp(Adw.Application):
         logger.info(f"Preview window created with {len(wallpaper_list)} wallpapers, starting at index {current_index}")
         
         # Main vertical box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         main_box.set_margin_top(10)
         main_box.set_margin_bottom(10)
         main_box.set_margin_start(10)
@@ -2192,6 +2192,8 @@ class WSelectorApp(Adw.Application):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_hexpand(True)
         scrolled.set_vexpand(True)
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        main_box.append(scrolled)
         
         # Create a viewport to handle the image
         viewport = Gtk.Viewport()
@@ -2257,11 +2259,7 @@ class WSelectorApp(Adw.Application):
         set_bg_button.set_margin_end(12)
         set_bg_button.set_size_request(180, 48)  # Wider button for better touch targets
         set_bg_button.connect("clicked", 
-            lambda *_: self._set_as_background(
-                preview_window.wallpaper_list[preview_window.current_index], 
-                preview_window
-            )
-        )
+            lambda *_: self._set_as_background(wallpaper_list[preview_window.current_index], preview_window))
         nav_box.append(set_bg_button)
         preview_window.set_bg_button = set_bg_button
         
