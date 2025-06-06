@@ -47,18 +47,7 @@
 - Flatpak with Flathub repository configured
 - Internet connection for wallpaper downloads
 
-## 🚀 Installation
-
-### Flatpak (Bundle) - Alternative
-
-1. Add Clone repository:
-   ```bash
-   git clone https://github.com/Cookiiieee/WSelector.git
-   cd WSelector
-   flatpak-builder --user --install --force-clean build-dir io.github.Cookiiieee.WSelector.json
-   ```
-   
-### Build from Source
+## 🚀 Build from Source
 
 1. Install prerequisites:
    ```bash
