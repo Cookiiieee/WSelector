@@ -10,14 +10,14 @@
         ]
     },
     "finish-args": [
-        "--share=network",
         "--socket=wayland",
         "--socket=fallback-x11",
+        "--share=network",
         "--filesystem=xdg-pictures/WSelector:create",
-        "--talk-name=org.freedesktop.portal.settings",
         "--talk-name=org.freedesktop.portal.Desktop",
         "--talk-name=org.gnome.desktop.background",
-        "--talk-name=org.kde.plasmashell"
+        "--talk-name=org.kde.plasmashell",
+        "--talk-name=org.freedesktop.Flatpak"
     ],
     "modules": [
         {

@@ -2301,90 +2301,70 @@ class WSelectorApp(Adw.Application):
             logger.exception(f"Error updating navigation buttons: {str(e)}")
     
     def _set_wallpaper_thread(self, filepath):
-        """Thread function to set the wallpaper without blocking the UI.
-        
-        Args:
-            filepath (str): Path to the wallpaper image file
-        """
+        """Thread function to set the wallpaper without blocking the UI."""
         try:
             logger.info(f"Attempting to set wallpaper: {filepath}")
-            
-            # Convert to URI format
             file_uri = f"file://{filepath}"
-            
-            # Try Gio.Settings method first (cleanest approach)
+
+            # Preferred: GSettings API (works inside Flatpak with right permissions)
             try:
-                settings = Gio.Settings.new('org.gnome.desktop.background')
-                settings.set_string('picture-uri', file_uri)
-                settings.set_string('picture-uri-dark', file_uri)  # For dark mode
-                settings.set_string('picture-options', 'zoom')
+                settings = Gio.Settings.new("org.gnome.desktop.background")
+                settings.set_string("picture-uri", file_uri)
+                settings.set_string("picture-uri-dark", file_uri)  # optional
+                settings.set_string("picture-options", "zoom")
                 settings.apply()
-                logger.info("Successfully set wallpaper using Gio.Settings")
+                logger.info("Successfully set wallpaper via GSettings API")
                 GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
                 return
             except Exception as e:
-                logger.warning(f"Gio.Settings method failed: {e}")
-            
-            # Fallback to flatpak-spawn if in Flatpak
+                logger.warning(f"GSettings API method failed: {e}")
+
+            # Fallback: flatpak-spawn (only needed if Gio fails)
             if os.path.exists('/.flatpak-info'):
                 try:
-                    logger.info("Trying flatpak-spawn gsettings method")
-                    subprocess.run([
-                        "flatpak-spawn", "--host", "gsettings", "set", 
-                        "org.gnome.desktop.background", "picture-uri", f"'{file_uri}'"
-                    ], check=True)
-                    subprocess.run([
-                        "flatpak-spawn", "--host", "gsettings", "set", 
-                        "org.gnome.desktop.background", "picture-uri-dark", f"'{file_uri}'"
-                    ], check=True)
-                    subprocess.run([
-                        "flatpak-spawn", "--host", "gsettings", "set", 
-                        "org.gnome.desktop.background", "picture-options", "'zoom'"
-                    ], check=True)
-                    logger.info("Successfully set wallpaper using flatpak-spawn")
+                    logger.info("Trying flatpak-spawn gsettings")
+                    subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
+                                    "org.gnome.desktop.background", "picture-uri", file_uri],
+                                check=True)
+                    subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
+                                    "org.gnome.desktop.background", "picture-uri-dark", file_uri],
+                                check=True)
+                    subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
+                                    "org.gnome.desktop.background", "picture-options", "zoom"],
+                                check=True)
+                    logger.info("Successfully set wallpaper via flatpak-spawn gsettings")
                     GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
                     return
-                except Exception as e:
-                    logger.error(f"flatpak-spawn method failed: {e}")
-            
-            # If we're here, Flatpak methods failed or we're not in Flatpak
-            # Try to detect desktop environment and use appropriate method
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"flatpak-spawn gsettings failed: {e}")
+
+            # Last Resort: direct gsettings command
             try:
-                desktop_env = self._detect_desktop_environment()
-                logger.info(f"Detected desktop environment: {desktop_env}")
-                
-                if "gnome" in desktop_env or "ubuntu" in desktop_env or "pop" in desktop_env:
-                    # GNOME/Unity/Cinnamon/MATE/Budgie
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", f"file://{filepath}"])
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri-dark", f"file://{filepath}"])
-                    subprocess.run(["gsettings", "set", "org.gnome.desktop.background", "picture-options", "zoom"])
-                elif "kde" in desktop_env or "plasma" in desktop_env:
-                    # KDE Plasma
-                    subprocess.run(["plasma-apply-wallpaperimage", filepath])
-                elif "xfce" in desktop_env:
-                    # XFCE
-                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", 
-                                  "/backdrop/screen0/monitor0/workspace0/last-image", "-s", filepath])
-                else:
-                    # Try feh as a last resort (common in minimal WMs)
-                    subprocess.run(["feh", "--bg-fill", filepath])
-                
-                logger.info(f"Wallpaper set using {desktop_env} method")
+                logger.info("Trying direct gsettings command")
+                subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
+                                "picture-uri", file_uri], check=True)
+                subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
+                                "picture-uri-dark", file_uri], check=True)
+                subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
+                                "picture-options", "zoom"], check=True)
+                logger.info("Successfully set wallpaper via direct gsettings")
                 GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
                 return
-                
-            except Exception as e:
-                logger.error(f"Error setting wallpaper: {e}")
-                raise Exception("Could not set wallpaper automatically")
-            
-        except Exception as error:
-            logger.error(f"Error in wallpaper thread: {error}", exc_info=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"gsettings command failed: {e}")
+
+            # If all methods fail
+            logger.error("All GNOME wallpaper methods failed")
             GLib.idle_add(lambda: self.show_error_toast("Could not set wallpaper automatically"))
             GLib.idle_add(lambda: self._show_wallpaper_instructions_dialog(filepath))
+
+        except Exception as error:
+            logger.error(f"Unexpected error in wallpaper thread: {error}", exc_info=True)
+            GLib.idle_add(lambda: self.show_error_toast("An unexpected error occurred"))
         finally:
-            # Reset the flag when done
             self._is_setting_wallpaper = False
-    
+
+ 
     def _detect_desktop_environment(self):
         """Detect the current desktop environment.
         
@@ -3139,35 +3119,22 @@ class WSelectorApp(Adw.Application):
             return False
             
     def _try_open_with_subprocess(self, folder_path):
-        """Try to open a folder using the Flatpak portal system"""
-        try:
-            logger.info("Trying to open folder with Flatpak portal")
-            
-            # Convert to URI format
-            file_uri = f"file://{folder_path}"
-            logger.info(f"Opening URI: {file_uri}")
-            
-            # Use Gtk.UriLauncher which is designed to work with Flatpak portals
-            launcher = Gtk.UriLauncher.new(file_uri)
-            
-            # Launch asynchronously to avoid blocking the UI
-            def launch_callback(source_object, result, user_data):
-                try:
-                    success = launcher.launch_finish(result)
-                    logger.info(f"Portal launch result: {'Success' if success else 'Failed'}")
-                except Exception as e:
-                    logger.error(f"Error in portal launch: {e}")
-            
-            # Launch with the active window as parent
-            launcher.launch(self.props.active_window, None, launch_callback, None)
-            
-            # Return True to indicate we've started the process
-            # The actual success/failure will be logged in the callback
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error setting up portal launch: {e}")
-            return False
+    """Try to open a folder using xdg-open through flatpak-spawn"""
+    try:
+        logger.info("Trying to open folder with xdg-open via flatpak-spawn")
+        
+        # Use flatpak-spawn to run xdg-open on the host
+        subprocess.Popen(
+            ["flatpak-spawn", "--host", "xdg-open", folder_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error opening folder with xdg-open: {e}")
+        return False
         
     def show_error_toast(self, message):
         toast = Adw.Toast.new(message)
