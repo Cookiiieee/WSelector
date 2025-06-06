@@ -173,5 +173,4 @@
   <provides>
     <binary>wselector</binary>
   </provides>
-  <update_contact>your-email@example.com</update_contact>
 </component>
