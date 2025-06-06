@@ -4,29 +4,54 @@
     "runtime-version": "48",
     "sdk": "org.gnome.Sdk",
     "command": "wselector",
-    "build-options": {
-        "build-args": [
-            "--share=network"
-        ]
-    },
     "finish-args": [
         "--share=network",
         "--socket=wayland",
-        "--share=ipc",
         "--socket=fallback-x11",
-        "--socket=session-bus",
         "--filesystem=xdg-pictures/WSelector:create",
         "--talk-name=org.freedesktop.Notifications",
         "--talk-name=org.freedesktop.portal.settings",
-        "--talk-name=org.freedesktop.FileManager1",
-        "--talk-name=org.gtk.Actions"
+        "--talk-name=org.freedesktop.FileManager1"
     ],
     "modules": [
         {
             "name": "python-deps",
             "buildsystem": "simple",
+            "sources": [
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/e4/33/89c2ced2b67d1c2a61c19c6751aa8902d46ce3dacb23600a283619f5a12d/charset_normalizer-3.4.2.tar.gz",
+                    "sha256": "5baececa9ecba31eff645232d59845c07aa030f0c81ee70184a90d35099a0e63"
+                },
+        	    {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/e8/9e/c05b3920a3b7d20d3d3310465f50348e5b3694f4f88c6daf736eef3024c4/certifi-2025.4.26.tar.gz",
+                    "sha256": "5baececa9ecba31eff645232d59845c07aa030f0c81ee70184a90d35099a0e63"
+                },
+
+        	    {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz",
+                    "sha256": "12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"
+                },
+        	    {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz",
+                    "sha256": "55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760"
+                },
+        	    {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/40/f2/6c9f2f3e696ee6a1fb0e4d7850617e224ed2b0b1e872110abffeca2a09d4/BeautifulSoup-3.2.2.tar.gz",
+                    "sha256": "a04169602bff6e3138b1259dbbf491f5a27f9499dea9a8fbafd48843f9d89970"
+                },
+        	    {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/2a/80/336820c1ad9286a4ded7e845b2eccfcb27851ab8ac6abece774a6ff4d3de/psutil-7.0.0.tar.gz",
+                    "sha256": "7be9c3eba38beccb6495ea33afd982a44074b78f28c434a1f51cc07fd315c456"
+                }
+            ],
             "build-commands": [
-                "python3 -m pip install --prefix=${FLATPAK_DEST} --no-binary :all: urllib3 charset-normalizer certifi idna requests beautifulsoup4 psutil"
+                "python3 -m pip install --no-index --find-links=/app --prefix=${FLATPAK_DEST} --no-deps *.tar.gz"
             ]
         },
         {
@@ -40,19 +65,9 @@
                 }
             ],
             "build-commands": [
-                "PYVER=$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')",
-                "install -Dm644 wselector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
-                "install -Dm644 io.github.Cookiiieee.WSelector.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.metainfo.xml",
-                "mkdir -p ${FLATPAK_DEST}/lib/python${PYVER}/site-packages",
-                "cp -r wselector ${FLATPAK_DEST}/lib/python${PYVER}/site-packages/",
-                "chmod +x install-icons.sh",
-                "./install-icons.sh ${FLATPAK_DEST}",
+                "python3 -m pip install --no-index --find-links=/app --prefix=${FLATPAK_DEST} --no-deps .",
                 "update-desktop-database ${FLATPAK_DEST}/share/applications",
-                "install -D /dev/null ${FLATPAK_DEST}/bin/wselector",
-                "echo '#!/bin/sh' > ${FLATPAK_DEST}/bin/wselector",
-                "echo 'export PYTHONPATH=/app/lib/python${PYVER}/site-packages' >> ${FLATPAK_DEST}/bin/wselector",
-                "echo 'exec /usr/bin/python3 -m wselector \"$@\"' >> ${FLATPAK_DEST}/bin/wselector",
-                "chmod +x ${FLATPAK_DEST}/bin/wselector"
+                "gtk-update-icon-cache -t ${FLATPAK_DEST}/share/icons/hicolor"
             ]
         }
     ],
