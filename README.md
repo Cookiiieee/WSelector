@@ -49,18 +49,15 @@
 
 ## 🚀 Installation
 
-### Flatpak (Recommended) > Pending Flathub Review (Will not work atm)
+### Flatpak (Bundle) - Alternative
 
-1. Add Flathub repository (if not already added):
+1. Add Clone repository:
    ```bash
-   flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+   git clone https://github.com/Cookiiieee/WSelector.git
+   cd WSelector
+   flatpak-builder --user --install --force-clean build-dir io.github.Cookiiieee.WSelector.json
    ```
-
-2. Install from Flathub:
-   ```bash
-   flatpak install flathub io.github.Cookiiieee.WSelector
-   ```
-
+   
 ### Build from Source
 
 1. Install prerequisites:
