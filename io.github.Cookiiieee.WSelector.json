@@ -5,14 +5,16 @@
     "sdk": "org.gnome.Sdk",
     "command": "wselector",
     "finish-args": [
+        "--share=ipc",
+        "--device=dri",
+        "--socket=session-bus",
         "--socket=wayland",
         "--socket=fallback-x11",
         "--share=network",
         "--filesystem=xdg-pictures/WSelector:create",
         "--talk-name=org.freedesktop.portal.Desktop",
         "--talk-name=org.gnome.desktop.background",
-        "--talk-name=org.kde.plasmashell",
-        "--talk-name=org.freedesktop.Flatpak"
+        "--talk-name=org.kde.plasmashell"
      ],
     "modules": [
     {
@@ -178,7 +180,7 @@
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "commit": "0bd00fe4d35bdbfe5d914d68708e18a4429b2fcb"
+            "commit": "db4021a284c7a5dbb8a53d52d738db62a9ac0c95"
         }
         ],
         "build-commands": [
