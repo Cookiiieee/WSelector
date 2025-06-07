@@ -178,14 +178,14 @@
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "commit": "09e4f7ca600020fbd11ce1dbd1ab02840c8ccf9f"
+            "commit": "886b0d12d802f9af350721f7c156aeee7f62d6d7"
         }
         ],
         "build-commands": [
         "install -Dm644 wselector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
         "install -Dm644 io.github.Cookiiieee.WSelector.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.metainfo.xml",
-        "mkdir -p ${FLATPAK_DEST}/lib/python3.10/site-packages",
-        "cp -r wselector ${FLATPAK_DEST}/lib/python3.10/site-packages/",
+        "mkdir -p ${FLATPAK_DEST}/lib/python3.12/site-packages",
+        "cp -r wselector ${FLATPAK_DEST}/lib/python3.12/site-packages/",
         "chmod +x install-icons.sh",
         "./install-icons.sh ${FLATPAK_DEST}",
         "update-desktop-database ${FLATPAK_DEST}/share/applications",
