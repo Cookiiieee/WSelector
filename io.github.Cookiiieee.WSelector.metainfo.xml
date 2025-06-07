@@ -5,7 +5,9 @@
   <project_license>GPL-3.0-or-later</project_license>
   <name>WSelector</name>
   <summary>Wallpaper Selector Manager</summary>
-  <developer_name>Phillip Cook</developer_name>
+  <developer>
+    <name>Phillip Cook</name>
+  </developer>
   <url type="homepage">https://github.com/Cookiiieee/WSelector</url>
   <url type="bugtracker">https://github.com/Cookiiieee/WSelector/issues</url>
   <url type="help">https://github.com/Cookiiieee/WSelector/discussions</url>
