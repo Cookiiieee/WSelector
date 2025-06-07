@@ -7,13 +7,13 @@
     "finish-args": [
         "--share=ipc",
         "--device=dri",
-        "--socket=session-bus",
         "--socket=wayland",
         "--socket=fallback-x11",
+        "--socket=session-bus",
         "--share=network",
         "--filesystem=xdg-pictures/WSelector:create",
         "--talk-name=org.freedesktop.portal.Desktop",
-        "--talk-name=org.gnome.desktop.background",
+        "--talk-name=org.freedesktop.portal.Wallpaper",
         "--talk-name=org.kde.plasmashell"
      ],
     "modules": [
@@ -180,7 +180,7 @@
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "commit": "d213780daf90d418e3871567d2df86f0c4fb66df"
+            "commit": "fa3ef9970ecb65604d6dda1e883f631918df5c5e"
         }
         ],
         "build-commands": [

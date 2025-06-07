@@ -2301,45 +2301,70 @@ class WSelectorApp(Adw.Application):
             logger.exception(f"Error updating navigation buttons: {str(e)}")
     
     def _set_wallpaper_thread(self, filepath):
-        """Thread function to set the wallpaper without blocking the UI."""
+        """Thread function to set the wallpaper without blocking the UI using XDG Desktop Portal."""
         try:
             logger.info(f"Attempting to set wallpaper: {filepath}")
             file_uri = f"file://{filepath}"
-
-            # First try: flatpak-spawn (most likely to work in Flatpak)
+            
+            # Try using XDG Desktop Portal (preferred method for Flatpak)
+            try:
+                logger.info("Trying XDG Desktop Portal Wallpaper API")
+                bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+                proxy = Gio.DBusProxy.new_sync(
+                    bus,
+                    Gio.DBusProxyFlags.NONE,
+                    None,
+                    'org.freedesktop.portal.Desktop',
+                    '/org/freedesktop/portal/desktop',
+                    'org.freedesktop.portal.Wallpaper',
+                    None
+                )
+                
+                # Set wallpaper options
+                options = {
+                    'show-preview': GLib.Variant('b', True),
+                    'set-on': GLib.Variant('s', 'both')  # 'both', 'background', or 'lockscreen'
+                }
+                
+                # Call the SetWallpaper method
+                result = proxy.call_sync(
+                    'SetWallpaper',
+                    GLib.Variant('(sa{sv}s)', (os.path.dirname(file_uri), options, os.path.basename(file_uri))),
+                    Gio.DBusCallFlags.NONE,
+                    -1,
+                    None
+                )
+                
+                if result and len(result) > 0 and result[0]:
+                    logger.info("Successfully set wallpaper via XDG Desktop Portal")
+                    GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                    return
+                else:
+                    logger.warning("XDG Desktop Portal returned empty response")
+                    
+            except Exception as e:
+                logger.warning(f"XDG Desktop Portal method failed: {e}")
+            
+            # Fallback to flatpak-spawn if XDG Portal fails
             if os.path.exists('/.flatpak-info'):
                 try:
-                    logger.info("Trying flatpak-spawn gsettings (first attempt)")
+                    logger.info("Trying flatpak-spawn gsettings (fallback)")
                     subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
                                     "org.gnome.desktop.background", "picture-uri", file_uri],
-                                check=True)
+                                  check=True)
                     subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
                                     "org.gnome.desktop.background", "picture-uri-dark", file_uri],
-                                check=True)
+                                  check=True)
                     subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
                                     "org.gnome.desktop.background", "picture-options", "zoom"],
-                                check=True)
+                                  check=True)
                     logger.info("Successfully set wallpaper via flatpak-spawn gsettings")
                     GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
                     return
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"flatpak-spawn gsettings failed: {e}")
-
-            # Second try: GSettings API
-            try:
-                logger.info("Trying GSettings API (second attempt)")
-                settings = Gio.Settings.new("org.gnome.desktop.background")
-                settings.set_string("picture-uri", file_uri)
-                settings.set_string("picture-uri-dark", file_uri)  # optional
-                settings.set_string("picture-options", "zoom")
-                settings.apply()
-                logger.info("Successfully set wallpaper via GSettings API")
-                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                return
-            except Exception as e:
-                logger.warning(f"GSettings API method failed: {e}")
-
-            # Last Resort: direct gsettings command
+            
+            # Last resort: direct gsettings command (for non-Flatpak)
             try:
                 logger.info("Trying direct gsettings command (last attempt)")
                 subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
