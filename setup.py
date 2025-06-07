@@ -19,7 +19,7 @@ for size in icon_sizes:
 
 setup(
     name="wselector",
-    version="0.1.8",
+    version="0.1.9",
     author="Cookiiieee",
     description="A modern GTK4/Adwaita application for browsing, downloading, and setting wallpapers from Wallhaven.cc",
     long_description=long_description,
