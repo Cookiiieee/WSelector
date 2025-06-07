@@ -38,6 +38,17 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.1.9" date="2025-06-07">
+      <description>
+        <p>Changes in this release:</p>
+        <ul>
+          <li>Removed direct D-Bus access in favor of XDG Desktop Portal</li>
+          <li>Improved Flatpak sandbox compatibility</li>
+          <li>Enhanced error handling for wallpaper setting</li>
+          <li>Updated dependencies and build process</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.8" date="2025-06-06">
       <description>
         <p>Changes in this release:</p>

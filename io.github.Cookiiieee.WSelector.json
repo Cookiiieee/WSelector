@@ -176,21 +176,19 @@
         "name": "wselector",
         "buildsystem": "simple",
         "sources": [
-        {
-            "type": "git",
-            "url": "https://github.com/Cookiiieee/WSelector.git",
-            "commit": "f95ab59134a035101eb831e47efa195684b0f6af"
-        }
+            {
+                "type": "git",
+                "url": "https://github.com/Cookiiieee/WSelector.git",
+                "tag": "v0.1.9",
+                "commit": "fbc5915dcbad60ea26c84a49e04e85b85733ec18"
+            }
         ],
         "build-commands": [
-        "install -Dm644 wselector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
-        "install -Dm644 io.github.Cookiiieee.WSelector.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.Cookiiieee.WSelector.metainfo.xml",
-        "mkdir -p ${FLATPAK_DEST}/lib/python3.12/site-packages",
-        "cp -r wselector ${FLATPAK_DEST}/lib/python3.12/site-packages/",
-        "chmod +x install-icons.sh",
-        "./install-icons.sh ${FLATPAK_DEST}",
-        "update-desktop-database ${FLATPAK_DEST}/share/applications",
-        "install -Dm755 files/wselector-wrapper.sh ${FLATPAK_DEST}/bin/wselector"
+            "pip3 install --verbose --no-build-isolation --prefix=${FLATPAK_DEST} .",
+            "chmod +x install-icons.sh",
+            "./install-icons.sh ${FLATPAK_DEST}",
+            "update-desktop-database ${FLATPAK_DEST}/share/applications",
+            "install -Dm755 files/wselector-wrapper.sh ${FLATPAK_DEST}/bin/wselector"
         ]
     }
     ],
