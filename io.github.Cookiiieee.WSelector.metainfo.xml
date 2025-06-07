@@ -30,7 +30,7 @@
   </description>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/main/screenshots/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.1.9/screenshots/screenshot.png</image>
     </screenshot>
   </screenshots>
   <categories>
@@ -38,6 +38,18 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.2.0" date="2025-06-07">
+      <description>
+        <p>Changes in this release:</p>
+        <ul>
+          <li>Updated icon installation and naming to follow Flatpak standards</li>
+          <li>Fixed desktop file and AppStream metadata validation</li>
+          <li>Improved icon handling with better fallback mechanisms</li>
+          <li>Updated build process and dependencies</li>
+          <li>Enhanced compatibility with different desktop environments</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.9" date="2025-06-07">
       <description>
         <p>Changes in this release:</p>

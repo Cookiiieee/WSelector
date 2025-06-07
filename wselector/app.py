@@ -3243,7 +3243,7 @@ class WSelectorApp(Adw.Application):
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version v0.1.9", 
+        version_label = Gtk.Label(label="Version v0.2.0", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)

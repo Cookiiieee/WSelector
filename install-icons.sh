@@ -5,58 +5,57 @@ set -e  # Exit on error
 FLATPAK_DEST=$1
 ICON_NAME="io.github.Cookiiieee.WSelector"
 
-# Create target directories and copy all available icons
+# Create target directories and copy all available icons from data/icons/hicolor
 for size in 16 32 48 64 96 128 192 256 512; do
-    # Check both possible source locations and naming conventions
-    for src_dir in "data/icons/hicolor" "icons"; do
-        # Check for icons in standard hicolor directory structure first
-        if [ -f "${src_dir}/${size}x${size}/apps/org.example.WSelector.png" ]; then
-            mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/"
-            cp "${src_dir}/${size}x${size}/apps/org.example.WSelector.png" \
-               "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
-            break
-        # Check for icons with size in filename
-        elif [ -f "${src_dir}/icon_1748228995_${size}x${size}.png" ]; then
-            mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/"
-            cp "${src_dir}/icon_1748228995_${size}x${size}.png" \
-               "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
-            break
-        fi
-    done
+    SRC_ICON="data/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
+    DEST_DIR="${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps"
+    
+    if [ -f "${SRC_ICON}" ]; then
+        mkdir -p "${DEST_DIR}"
+        cp "${SRC_ICON}" "${DEST_DIR}/"
+        echo "Installed ${size}x${size} icon"
+    fi
 done
 
-# Ensure we have at least the 256x256 icon
+# Ensure we have at least the 256x256 icon (create from largest available if needed)
 if [ ! -f "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png" ]; then
-    # Try to find any icon we can use as fallback
-    for size in 512 128 64 48 32 16; do
-        if [ -f "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png" ]; then
+    for size in 512 256 192 128 96 64 48 32 16; do
+        SRC_ICON="${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
+        if [ -f "${SRC_ICON}" ]; then
             mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/"
-            cp "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png" \
-               "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png"
+            cp "${SRC_ICON}" "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png"
+            echo "Created 256x256 icon from ${size}x${size} version"
             break
         fi
     done
 fi
 
-# Create symbolic links for any missing sizes using the 256x256 version
+# Create fallback icons for any missing sizes using the 256x256 version
 if [ -f "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png" ]; then
     for size in 16 32 48 64 96 128 192 512; do
-        if [ ! -f "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png" ]; then
-            mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/"
-            cp "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png" \
-               "${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
+        DEST_ICON="${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/${ICON_NAME}.png"
+        if [ ! -f "${DEST_ICON}" ]; then
+            mkdir -p "$(dirname "${DEST_ICON}")"
+            cp "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png" "${DEST_ICON}"
+            echo "Created ${size}x${size} fallback icon"
         fi
     done
     
     # Create a scalable icon symlink
-    mkdir -p "${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/"
-    ln -sf "../256x256/apps/${ICON_NAME}.png" \
-           "${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${ICON_NAME}.png"
+    SCALABLE_DIR="${FLATPAK_DEST}/share/icons/hicolor/scalable/apps"
+    mkdir -p "${SCALABLE_DIR}"
+    if [ ! -e "${SCALABLE_DIR}/${ICON_NAME}.png" ]; then
+        ln -sf "../../256x256/apps/${ICON_NAME}.png" "${SCALABLE_DIR}/${ICON_NAME}.png"
+        echo "Created scalable icon symlink"
+    fi
     
-    # Also create a symbolic link in pixmaps for compatibility
-    mkdir -p "${FLATPAK_DEST}/share/pixmaps/"
-    ln -sf "../icons/hicolor/256x256/apps/${ICON_NAME}.png" \
-           "${FLATPAK_DEST}/share/pixmaps/${ICON_NAME}.png"
+    # Create a symbolic link in pixmaps for compatibility
+    PIXMAPS_DIR="${FLATPAK_DEST}/share/pixmaps"
+    mkdir -p "${PIXMAPS_DIR}"
+    if [ ! -e "${PIXMAPS_DIR}/${ICON_NAME}.png" ]; then
+        ln -sf "../icons/hicolor/256x256/apps/${ICON_NAME}.png" "${PIXMAPS_DIR}/${ICON_NAME}.png"
+        echo "Created pixmaps symlink"
+    fi
 fi
 
 # Verify that at least one icon was installed
@@ -64,3 +63,5 @@ if [ -z "$(find "${FLATPAK_DEST}/share/icons" -name "${ICON_NAME}.png" -print -q
     echo "ERROR: No icons were installed for ${ICON_NAME}" >&2
     exit 1
 fi
+
+echo "Icon installation completed successfully!"
