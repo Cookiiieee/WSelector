@@ -178,7 +178,7 @@
         {
             "type": "git",
             "url": "https://github.com/Cookiiieee/WSelector.git",
-            "commit": "886b0d12d802f9af350721f7c156aeee7f62d6d7"
+            "commit": "0bd00fe4d35bdbfe5d914d68708e18a4429b2fcb"
         }
         ],
         "build-commands": [
