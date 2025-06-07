@@ -19,7 +19,7 @@ declare -A icon_map=(
 for size in "${!icon_map[@]}"; do
     icon_size=${icon_map[$size]}
     # Look for both possible icon naming conventions
-    icon_src="data/icons/hicolor/${size}x${size}/apps/org.example.WSelector.png"
+    icon_src="data/icons/hicolor/${size}x${size}/apps/io.github.Cookiiieee.WSelector.png"
     if [ ! -f "$icon_src" ]; then
         icon_src="data/icons/hicolor/${size}x${size}/apps/io.github.Cookiiieee.WSelector.png"
     fi
