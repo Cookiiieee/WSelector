@@ -2034,7 +2034,12 @@ class WSelectorApp(Adw.Application):
         logger.info(f"Preview window created with {len(wallpaper_list)} wallpapers, starting at index {current_index}")
         
         # Main vertical box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        main_box.set_margin_top(10)
+        main_box.set_margin_bottom(10)
+        main_box.set_margin_start(10)
+        main_box.set_margin_end(10)
+        preview_window.set_child(main_box)
         
         # Create a scrolled window for the image
         scrolled = Gtk.ScrolledWindow()
@@ -2359,6 +2364,7 @@ class WSelectorApp(Adw.Application):
             GLib.idle_add(lambda: self.show_error_toast("An unexpected error occurred"))
         finally:
             self._is_setting_wallpaper = False
+
 
     def _detect_desktop_environment(self):
         """Detect the current desktop environment.
