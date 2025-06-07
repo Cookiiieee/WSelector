@@ -3119,20 +3119,34 @@ class WSelectorApp(Adw.Application):
             return False
             
     def _try_open_with_subprocess(self, folder_path):
-        """Try to open a folder using xdg-open through flatpak-spawn"""
+        """Try to open a    def _try_open_with_subprocess(s folder using the Flatpak portal system"""
         try:
-            logger.info("Trying to open folder with xdg-open via flatpak-spawn")
+            logger.info("Trying to open folder with Flatpak portal")
             
-            # Use flatpak-spawn to run xdg-open on the host
-            subprocess.Popen(
-                ["flatpak-spawn", "--host", "xdg-open", folder_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                start_new_session=True
-            )
+            # Convert to URI format
+            file_uri = f"file://{folder_path}"
+            logger.info(f"Opening URI: {file_uri}")
+            
+            # Use Gtk.UriLauncher which is designed to work with Flatpak portals
+            launcher = Gtk.UriLauncher.new(file_uri)
+            
+            # Launch asynchronously to avoid blocking the UI
+            def launch_callback(source_object, result, user_data):
+                try:
+                    success = launcher.launch_finish(result)
+                    logger.info(f"Portal launch result: {'Success' if success else 'Failed'}")
+                except Exception as e:
+                    logger.error(f"Error in portal launch: {e}")
+            
+            # Launch with the active window as parent
+            launcher.launch(self.props.active_window, None, launch_callback, None)
+            
+            # Return True to indicate we've started the process
+            # The actual success/failure will be logged in the callback
             return True
+            
         except Exception as e:
-            logger.error(f"Failed to open folder with xdg-open: {e}")
+            logger.error(f"Error setting up portal launch: {e}")
             return False
         
     def show_error_toast(self, message):
