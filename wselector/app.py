@@ -3119,22 +3119,21 @@ class WSelectorApp(Adw.Application):
             return False
             
     def _try_open_with_subprocess(self, folder_path):
-    """Try to open a folder using xdg-open through flatpak-spawn"""
-    try:
-        logger.info("Trying to open folder with xdg-open via flatpak-spawn")
-        
-        # Use flatpak-spawn to run xdg-open on the host
-        subprocess.Popen(
-            ["flatpak-spawn", "--host", "xdg-open", folder_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True
-        )
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error opening folder with xdg-open: {e}")
-        return False
+        """Try to open a folder using xdg-open through flatpak-spawn"""
+        try:
+            logger.info("Trying to open folder with xdg-open via flatpak-spawn")
+            
+            # Use flatpak-spawn to run xdg-open on the host
+            subprocess.Popen(
+                ["flatpak-spawn", "--host", "xdg-open", folder_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to open folder with xdg-open: {e}")
+            return False
         
     def show_error_toast(self, message):
         toast = Adw.Toast.new(message)
