@@ -2323,44 +2323,37 @@ class WSelectorApp(Adw.Application):
                     fd = file_obj.fileno()
                     logger.info(f"File descriptor opened: {fd}")
 
-                    # Create UnixFDList and append the real file descriptor
                     fd_list = Gio.UnixFDList.new()
-                    index = fd_list.append(fd)  # should be integer index (0 if first fd)
-                    logger.info(f"File descriptor index in fd_list: {index} (type: {type(index)})")
+                    index = fd_list.append(fd)  # index must be an int
 
-                    # Build the input variant using the index (integer), NOT Variant
-                    # Variant signature per doc: (sha{sv}) 
-                    # which means: tuple of (string, fd handle index (int), dict of options)
-                    input_variant = GLib.Variant(
-                        '(sha{sv})',
-                        (
-                            '',  # parent_window as empty string
-                            index,  # integer index into fd_list
-                            {
-                                'show-preview': GLib.Variant('b', True),
-                                'set-on': GLib.Variant('s', 'both')
-                            }
-                        )
-                    )
+                    input_variant = GLib.Variant('(sha{sv})', (
+                        '',  # parent_window as empty string
+                        index,  # integer index into the fd_list
+                        {
+                            'show-preview': GLib.Variant('b', True),
+                            'set-on': GLib.Variant('s', 'both')
+                        }
+                    ))
 
-                    # Call the method with the UnixFDList, sync call takes 6 args only
                     result = proxy.call_with_unix_fd_list_sync(
                         'SetWallpaperFile',
                         input_variant,
                         Gio.DBusCallFlags.NONE,
-                        -1,  # default timeout
+                        -1,
                         fd_list,
-                        None  # cancellable
+                        None
                     )
 
                 logger.info(f"SetWallpaperFile call completed. Result: {result}")
 
-                # Check result for success
-                if result and result.get_child_value(0).get_type_string() == 'o':
-                    handle_path = result.get_child_value(0).get_string()
-                    logger.info(f"Wallpaper set request sent successfully. Handle path: {handle_path}")
-                    GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                    return
+                # result is a tuple: (GLib.Variant('(o)', (handle_path,)), out_fd_list)
+                if result and isinstance(result, tuple) and len(result) >= 1:
+                    variant = result[0]
+                    if variant.get_type_string() == '(o)':
+                        handle_path = variant.get_child_value(0).get_string()
+                        logger.info(f"Wallpaper set request sent successfully. Handle path: {handle_path}")
+                        GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                        return
                 else:
                     logger.warning("Unexpected result from SetWallpaperFile call")
 
@@ -2408,7 +2401,6 @@ class WSelectorApp(Adw.Application):
             except subprocess.CalledProcessError as e:
                 logger.error(f"gsettings command failed: {e}")
 
-            # If all methods fail
             logger.error("All wallpaper setting methods failed")
             GLib.idle_add(lambda: self.show_error_toast("Could not set wallpaper automatically"))
             GLib.idle_add(lambda: self._show_wallpaper_instructions_dialog(filepath))
