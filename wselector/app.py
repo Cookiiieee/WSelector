@@ -2004,8 +2004,7 @@ class WSelectorApp(Adw.Application):
                     os.path.join(wallpapers_dir, f) 
                     for f in os.listdir(wallpapers_dir) 
                     if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
-                ], key=os.path.getmtime, reverse=True)
-                
+                ])
                 # Find the current file in the list
                 try:
                     current_index = wallpaper_list.index(os.path.abspath(filepath))
@@ -2322,26 +2321,38 @@ class WSelectorApp(Adw.Application):
                 )
                 
                 # Open the file and get a file descriptor
-                file_obj = open(filepath, 'rb')
-                fd = file_obj.fileno()
-                
-                # Set wallpaper options
-                options = {
-                    'show-preview': GLib.Variant('b', True),
-                    'set-on': GLib.Variant('s', 'both')  # 'both', 'background', or 'lockscreen'
-                }
-                
-                # Call the SetWallpaperFile method with the correct signature (sha{sv})
-                result = proxy.call_sync(
-                    'SetWallpaperFile',
-                    GLib.Variant('(sha{sv})', ('', fd, options)),
-                    Gio.DBusCallFlags.NONE,
-                    -1,
-                    None
-                )
-                
-                # Close the file descriptor
-                file_obj.close()
+                try:
+                    logger.info(f"Attempting to open file: {filepath}")
+                    file_obj = open(filepath, 'rb')
+                    fd = file_obj.fileno()
+                    logger.info(f"Successfully opened file. File descriptor: {fd}")
+                    
+                    # Set wallpaper options
+                    options = {
+                        'show-preview': GLib.Variant('b', True),
+                        'set-on': GLib.Variant('s', 'both')  # 'both', 'background', or 'lockscreen'
+                    }
+                    logger.info(f"Prepared options: {options}")
+                    
+                    # Call the SetWallpaperFile method with the correct signature (sha{sv})
+                    logger.info("Calling SetWallpaperFile with file descriptor")
+                    result = proxy.call_sync(
+                        'SetWallpaperFile',
+                        GLib.Variant('(sha{sv})', ('', fd, options)),
+                        Gio.DBusCallFlags.NONE,
+                        -1,
+                        None
+                    )
+                    logger.info(f"SetWallpaperFile call completed. Result: {result}")
+                    
+                except Exception as e:
+                    logger.error(f"Error in XDG Desktop Portal call: {e}", exc_info=True)
+                    raise
+                finally:
+                    # Close the file descriptor
+                    if 'file_obj' in locals():
+                        logger.info("Closing file descriptor")
+                        file_obj.close()
                 
                 if result and len(result) > 0 and result[0]:
                     logger.info("Successfully set wallpaper via XDG Desktop Portal")
