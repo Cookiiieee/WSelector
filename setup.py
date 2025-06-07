@@ -29,7 +29,10 @@ setup(
     package_data={
         'wselector': ['*.ui', '*.css', '*.png'],  # Include any UI files, styles, or images
     },
-    data_files=data_files,
+    data_files = [
+        ('share/applications', ['data/io.github.Cookiiieee.WSelector.desktop']),
+        ('share/metainfo', ['data/io.github.Cookiiieee.WSelector.metainfo.xml']),
+    ],
     install_requires=[
         'PyGObject>=3.42.0',
         'requests>=2.31.0',
