@@ -2325,32 +2325,37 @@ class WSelectorApp(Adw.Application):
 
                     # Create UnixFDList and append the real file descriptor
                     fd_list = Gio.UnixFDList.new()
-                    index = fd_list.append(fd)  # should return 0 if first/only fd
+                    index = fd_list.append(fd)  # should be integer index (0 if first fd)
+                    logger.info(f"File descriptor index in fd_list: {index} (type: {type(index)})")
 
-                    # Build the input variant using the index, NOT a Variant
-                    input_variant = GLib.Variant('(sha{sv})', (
-                        '',  # parent_window as empty string
-                        index,  # this is the integer index into the fd_list
-                        {
-                            'show-preview': GLib.Variant('b', True),
-                            'set-on': GLib.Variant('s', 'both')
-                        }
-                    ))
+                    # Build the input variant using the index (integer), NOT Variant
+                    # Variant signature per doc: (sha{sv}) 
+                    # which means: tuple of (string, fd handle index (int), dict of options)
+                    input_variant = GLib.Variant(
+                        '(sha{sv})',
+                        (
+                            '',  # parent_window as empty string
+                            index,  # integer index into fd_list
+                            {
+                                'show-preview': GLib.Variant('b', True),
+                                'set-on': GLib.Variant('s', 'both')
+                            }
+                        )
+                    )
 
-                    # Call the method with FD list
+                    # Call the method with the UnixFDList, sync call takes 6 args only
                     result = proxy.call_with_unix_fd_list_sync(
                         'SetWallpaperFile',
                         input_variant,
                         Gio.DBusCallFlags.NONE,
-                        -1,
+                        -1,  # default timeout
                         fd_list,
-                        None,
-                        None
+                        None  # cancellable
                     )
 
                 logger.info(f"SetWallpaperFile call completed. Result: {result}")
 
-                # Check result
+                # Check result for success
                 if result and result.get_child_value(0).get_type_string() == 'o':
                     handle_path = result.get_child_value(0).get_string()
                     logger.info(f"Wallpaper set request sent successfully. Handle path: {handle_path}")
