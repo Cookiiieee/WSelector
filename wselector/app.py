@@ -2323,16 +2323,14 @@ class WSelectorApp(Adw.Application):
                     fd = file_obj.fileno()
                     logger.info(f"File descriptor opened: {fd}")
 
-                    # Prepare options
                     options = {
                         'show-preview': GLib.Variant('b', True),
-                        'set-on': GLib.Variant('s', 'both')
+                        'set-on': GLib.Variant('s', 'background')
                     }
 
-                    # Build variant properly: s = parent_window (empty), h = file descriptor, a{sv} = options
                     input_variant = GLib.Variant('(sha{sv})', (
-                        '',  # No parent window
-                        GLib.Variant('h', fd),  # Wrap FD properly
+                        '',    # parent window
+                        fd,    # file descriptor, NOT wrapped in Variant
                         options
                     ))
 
