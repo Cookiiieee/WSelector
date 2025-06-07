@@ -2034,12 +2034,7 @@ class WSelectorApp(Adw.Application):
         logger.info(f"Preview window created with {len(wallpaper_list)} wallpapers, starting at index {current_index}")
         
         # Main vertical box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        main_box.set_margin_top(10)
-        main_box.set_margin_bottom(10)
-        main_box.set_margin_start(10)
-        main_box.set_margin_end(10)
-        preview_window.set_child(main_box)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         
         # Create a scrolled window for the image
         scrolled = Gtk.ScrolledWindow()
@@ -2306,23 +2301,10 @@ class WSelectorApp(Adw.Application):
             logger.info(f"Attempting to set wallpaper: {filepath}")
             file_uri = f"file://{filepath}"
 
-            # Preferred: GSettings API (works inside Flatpak with right permissions)
-            try:
-                settings = Gio.Settings.new("org.gnome.desktop.background")
-                settings.set_string("picture-uri", file_uri)
-                settings.set_string("picture-uri-dark", file_uri)  # optional
-                settings.set_string("picture-options", "zoom")
-                settings.apply()
-                logger.info("Successfully set wallpaper via GSettings API")
-                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
-                return
-            except Exception as e:
-                logger.warning(f"GSettings API method failed: {e}")
-
-            # Fallback: flatpak-spawn (only needed if Gio fails)
+            # First try: flatpak-spawn (most likely to work in Flatpak)
             if os.path.exists('/.flatpak-info'):
                 try:
-                    logger.info("Trying flatpak-spawn gsettings")
+                    logger.info("Trying flatpak-spawn gsettings (first attempt)")
                     subprocess.run(["flatpak-spawn", "--host", "gsettings", "set",
                                     "org.gnome.desktop.background", "picture-uri", file_uri],
                                 check=True)
@@ -2336,11 +2318,25 @@ class WSelectorApp(Adw.Application):
                     GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
                     return
                 except subprocess.CalledProcessError as e:
-                    logger.error(f"flatpak-spawn gsettings failed: {e}")
+                    logger.warning(f"flatpak-spawn gsettings failed: {e}")
+
+            # Second try: GSettings API
+            try:
+                logger.info("Trying GSettings API (second attempt)")
+                settings = Gio.Settings.new("org.gnome.desktop.background")
+                settings.set_string("picture-uri", file_uri)
+                settings.set_string("picture-uri-dark", file_uri)  # optional
+                settings.set_string("picture-options", "zoom")
+                settings.apply()
+                logger.info("Successfully set wallpaper via GSettings API")
+                GLib.idle_add(lambda: self.show_success_toast("Wallpaper set successfully!"))
+                return
+            except Exception as e:
+                logger.warning(f"GSettings API method failed: {e}")
 
             # Last Resort: direct gsettings command
             try:
-                logger.info("Trying direct gsettings command")
+                logger.info("Trying direct gsettings command (last attempt)")
                 subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
                                 "picture-uri", file_uri], check=True)
                 subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
@@ -2354,7 +2350,7 @@ class WSelectorApp(Adw.Application):
                 logger.error(f"gsettings command failed: {e}")
 
             # If all methods fail
-            logger.error("All GNOME wallpaper methods failed")
+            logger.error("All wallpaper setting methods failed")
             GLib.idle_add(lambda: self.show_error_toast("Could not set wallpaper automatically"))
             GLib.idle_add(lambda: self._show_wallpaper_instructions_dialog(filepath))
 
@@ -2364,7 +2360,6 @@ class WSelectorApp(Adw.Application):
         finally:
             self._is_setting_wallpaper = False
 
- 
     def _detect_desktop_environment(self):
         """Detect the current desktop environment.
         
