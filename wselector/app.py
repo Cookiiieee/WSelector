@@ -2004,7 +2004,8 @@ class WSelectorApp(Adw.Application):
                     os.path.join(wallpapers_dir, f) 
                     for f in os.listdir(wallpapers_dir) 
                     if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
-                ])
+                ], key=os.path.getmtime, reverse=True)
+                
                 # Find the current file in the list
                 try:
                     current_index = wallpaper_list.index(os.path.abspath(filepath))
@@ -2320,20 +2321,27 @@ class WSelectorApp(Adw.Application):
                     None
                 )
                 
+                # Open the file and get a file descriptor
+                file_obj = open(filepath, 'rb')
+                fd = file_obj.fileno()
+                
                 # Set wallpaper options
                 options = {
                     'show-preview': GLib.Variant('b', True),
                     'set-on': GLib.Variant('s', 'both')  # 'both', 'background', or 'lockscreen'
                 }
                 
-                # Call the SetWallpaperFile method
+                # Call the SetWallpaperFile method with the correct signature (sha{sv})
                 result = proxy.call_sync(
                     'SetWallpaperFile',
-                    GLib.Variant('(sa{sv}s)', (os.path.dirname(file_uri), options, os.path.basename(file_uri))),
+                    GLib.Variant('(sha{sv})', ('', fd, options)),
                     Gio.DBusCallFlags.NONE,
                     -1,
                     None
                 )
+                
+                # Close the file descriptor
+                file_obj.close()
                 
                 if result and len(result) > 0 and result[0]:
                     logger.info("Successfully set wallpaper via XDG Desktop Portal")
