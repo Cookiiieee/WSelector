@@ -2326,9 +2326,9 @@ class WSelectorApp(Adw.Application):
                     'set-on': GLib.Variant('s', 'both')  # 'both', 'background', or 'lockscreen'
                 }
                 
-                # Call the SetWallpaper method
+                # Call the SetWallpaperFile method
                 result = proxy.call_sync(
-                    'SetWallpaper',
+                    'SetWallpaperFile',
                     GLib.Variant('(sa{sv}s)', (os.path.dirname(file_uri), options, os.path.basename(file_uri))),
                     Gio.DBusCallFlags.NONE,
                     -1,
