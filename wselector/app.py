@@ -2323,23 +2323,32 @@ class WSelectorApp(Adw.Application):
                     fd = file_obj.fileno()
                     logger.info(f"File descriptor opened: {fd}")
 
+                    # Wrap fd as a variant of type 'h' (unix fd)
+                    fd_variant = GLib.Variant('h', 0)  # Index 0 in the FD list
+
                     options = {
                         'show-preview': GLib.Variant('b', True),
-                        'set-on': GLib.Variant('s', 'background')
+                        'set-on': GLib.Variant('s', 'both')
                     }
 
                     input_variant = GLib.Variant('(sha{sv})', (
-                        '',    # parent window
-                        fd,    # file descriptor, NOT wrapped in Variant
+                        '',  # No parent window
+                        fd_variant,
                         options
                     ))
 
-                    logger.info("Calling SetWallpaperFile")
-                    result = proxy.call_sync(
+                    # Create and populate the UnixFDList
+                    fd_list = Gio.UnixFDList.new()
+                    fd_list.append(fd)
+
+                    logger.info("Calling SetWallpaperFile with unix fd list")
+                    result = proxy.call_with_unix_fd_list_sync(
                         'SetWallpaperFile',
                         input_variant,
                         Gio.DBusCallFlags.NONE,
                         -1,
+                        fd_list,
+                        None,
                         None
                     )
 
