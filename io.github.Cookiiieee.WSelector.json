@@ -22,7 +22,17 @@
     ],
     "modules": [
         {
-            "include": "python-modules.json"
+            "name": "python-modules",
+            "buildsystem": "simple",
+            "sources": [
+                {
+                    "type": "file",
+                    "path": "python-modules.json"
+                }
+            ],
+            "build-commands": [
+                "pip3 install --verbose --no-index --find-links=file://${PWD} --prefix=${FLATPAK_DEST} -r python-modules.json"
+            ]
         },
         {
             "name": "wselector",
@@ -32,7 +42,7 @@
                     "type": "git",
                     "url": "https://github.com/Cookiiieee/WSelector.git",
                     "tag": "v0.2.0",
-                    "commit": "40d2d4a0bf0305533b34e4ec33d28efb13e61541"
+                    "commit": "5aae80d9b961747aff5bebf59eb724b1335b8faa"
                 }
             ],
             "build-commands": [
