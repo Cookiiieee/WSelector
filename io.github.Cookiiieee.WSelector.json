@@ -22,15 +22,7 @@
     ],
     "modules": [
         {
-            "name": "python-modules",
-            "buildsystem": "json",
-            "build-commands": [],
-            "sources": [
-                {
-                    "type": "file",
-                    "path": "python-modules.json"
-                }
-            ]
+            "include": "python-modules.json"
         },
         {
             "name": "wselector",
@@ -40,7 +32,7 @@
                     "type": "git",
                     "url": "https://github.com/Cookiiieee/WSelector.git",
                     "tag": "v0.2.0",
-                    "commit": "f98b65ec19ba3b103d9c7faa19432ecae2e36c4d"
+                    "commit": "40d2d4a0bf0305533b34e4ec33d28efb13e61541"
                 }
             ],
             "build-commands": [
