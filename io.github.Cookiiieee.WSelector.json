@@ -21,37 +21,24 @@
         "/lib/*.a"
     ],
     "modules": [
-        {
-            "name": "python-modules",
-            "buildsystem": "simple",
-            "sources": [
-                {
-                    "type": "file",
-                    "path": "python-modules.json"
-                }
-            ],
-            "build-commands": [
-                "pip3 install --verbose --no-index --find-links=file://${PWD} --prefix=${FLATPAK_DEST} -r python-modules.json"
-            ]
-        },
+        { "include": "python-modules.json" },
         {
             "name": "wselector",
             "buildsystem": "simple",
             "sources": [
                 {
-                    "type": "git",
-                    "url": "https://github.com/Cookiiieee/WSelector.git",
-                    "tag": "v0.2.0",
-                    "commit": "5aae80d9b961747aff5bebf59eb724b1335b8faa"
-                }
-            ],
-            "build-commands": [
-                "pip3 install --verbose --no-build-isolation --prefix=${FLATPAK_DEST} .",
-                "chmod +x install-icons.sh",
-                "./install-icons.sh ${FLATPAK_DEST}",
-                "update-desktop-database ${FLATPAK_DEST}/share/applications",
-                "install -Dm755 files/wselector-wrapper.sh ${FLATPAK_DEST}/bin/wselector"
-            ]
-        }
-    ]
-}
+                "type": "git",
+                "url": "https://github.com/Cookiiieee/WSelector.git",
+                "tag": "v0.2.0",
+                "commit": "f98b65ec19ba3b103d9c7faa19432ecae2e36c4d"
+            }
+        ],
+        "build-commands": [
+            "pip3 install --verbose --no-build-isolation --prefix=${FLATPAK_DEST} .",
+            "chmod +x install-icons.sh",
+            "./install-icons.sh ${FLATPAK_DEST}",
+            "update-desktop-database ${FLATPAK_DEST}/share/applications",
+            "install -Dm755 files/wselector-wrapper.sh ${FLATPAK_DEST}/bin/wselector"
+        ]
+    }   
+]
