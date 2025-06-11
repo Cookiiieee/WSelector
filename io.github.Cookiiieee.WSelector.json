@@ -10,9 +10,7 @@
         "--socket=wayland",
         "--socket=fallback-x11",
         "--share=network",
-        "--filesystem=xdg-pictures/WSelector:create",
-        "--talk-name=org.freedesktop.portal.Wallpaper",
-        "--talk-name=org.kde.plasmashell"
+        "--filesystem=xdg-pictures/WSelector:create"
     ],
     "cleanup": [
         "/share/man",
@@ -185,7 +183,7 @@
                     "type": "git",
                     "url": "https://github.com/Cookiiieee/WSelector.git",
                     "tag": "v0.2.0",
-                    "commit": "f98b65ec19ba3b103d9c7faa19432ecae2e36c4d"
+                    "commit": "e5481da5de7f01bdd4a24b51913dda693c517ef4"
                 }
             ],
             "build-commands": [
