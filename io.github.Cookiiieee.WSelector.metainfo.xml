@@ -5,7 +5,7 @@
   <project_license>GPL-3.0-or-later</project_license>
   <name>WSelector</name>
   <summary>Wallpaper Selector Manager</summary>
-  <developer>
+  <developer id="io.github.Cookiiieee">
     <name>Phillip Cook</name>
   </developer>
   <url type="homepage">https://github.com/Cookiiieee/WSelector</url>
@@ -33,14 +33,16 @@
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.0/screenshots/screenshot.png</image>
+      <caption>WSelector main window</caption>
     </screenshot>
   </screenshots>
   <categories>
-    <category>GTK</category>
+    <category>Graphics</category>
+    <category>Photography</category>
     <category>Utility</category>
   </categories>
   <releases>
-    <release version="0.2.0" date="2025-06-07">
+    <release version="0.2.0" date="2025-06-11">
       <description>
         <p>Changes in this release:</p>
         <ul>
