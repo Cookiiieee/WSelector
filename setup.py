@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 # Define data files
 data_files = [
-    ('share/applications', ['io.github.Cookiiieee.WSelector.desktop']),
+    ('share/applications', ['files/io.github.Cookiiieee.WSelector.desktop']),
     ('share/metainfo', ['io.github.Cookiiieee.WSelector.metainfo.xml']),
 ]
 
@@ -29,10 +29,7 @@ setup(
     package_data={
         'wselector': ['*.ui', '*.css', '*.png'],  # Include any UI files, styles, or images
     },
-    data_files = [
-        ('share/applications', ['io.github.Cookiiieee.WSelector.desktop']),
-        ('share/metainfo', ['io.github.Cookiiieee.WSelector.metainfo.xml']),
-    ],
+    data_files=data_files,
     install_requires=[
         'PyGObject>=3.42.0',
         'requests>=2.31.0',
