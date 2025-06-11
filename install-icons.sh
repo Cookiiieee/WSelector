@@ -41,12 +41,15 @@ if [ -f "${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${ICON_NAME}.png" ]; t
         fi
     done
     
-    # Create a scalable icon symlink
-    SCALABLE_DIR="${FLATPAK_DEST}/share/icons/hicolor/scalable/apps"
-    mkdir -p "${SCALABLE_DIR}"
-    if [ ! -e "${SCALABLE_DIR}/${ICON_NAME}.png" ]; then
-        ln -sf "../../256x256/apps/${ICON_NAME}.png" "${SCALABLE_DIR}/${ICON_NAME}.png"
-        echo "Created scalable icon symlink"
+    # Install SVG icon for scalable folder
+    SVG_ICON="data/icons/hicolor/scalable/apps/${ICON_NAME}.svg"
+    if [ -f "${SVG_ICON}" ]; then
+        SCALABLE_DIR="${FLATPAK_DEST}/share/icons/hicolor/scalable/apps"
+        mkdir -p "${SCALABLE_DIR}"
+        cp "${SVG_ICON}" "${SCALABLE_DIR}/"
+        echo "Installed scalable SVG icon"
+    else
+        echo "Warning: SVG icon not found at ${SVG_ICON}"
     fi
     
     # Create a symbolic link in pixmaps for compatibility
