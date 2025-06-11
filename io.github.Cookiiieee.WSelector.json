@@ -11,7 +11,7 @@
         "--socket=fallback-x11",
         "--share=network",
         "--filesystem=xdg-pictures/WSelector:create"
-    ],
+     ],
     "cleanup": [
         "/share/man",
         "/include",
@@ -191,6 +191,7 @@
                 "chmod +x install-icons.sh",
                 "./install-icons.sh ${FLATPAK_DEST}",
                 "update-desktop-database ${FLATPAK_DEST}/share/applications",
+                "install -Dm644 files/io.github.Cookiiieee.WSelector.desktop ${FLATPAK_DEST}/share/applications/io.github.Cookiiieee.WSelector.desktop",
                 "install -Dm755 files/wselector-wrapper.sh ${FLATPAK_DEST}/bin/wselector"
             ]
         }
