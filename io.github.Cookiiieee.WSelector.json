@@ -183,7 +183,7 @@
                     "type": "git",
                     "url": "https://github.com/Cookiiieee/WSelector.git",
                     "tag": "v0.2.0",
-                    "commit": "a5bbdf7ebb608d0a22347481c706bd8188b3a715"
+                    "commit": "3f3590e9e4e6ebaace6a5613d4b332554a40ff56"
                 }
             ],
             "build-commands": [

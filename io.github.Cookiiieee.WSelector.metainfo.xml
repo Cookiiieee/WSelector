@@ -11,6 +11,7 @@
   <url type="homepage">https://github.com/Cookiiieee/WSelector</url>
   <url type="bugtracker">https://github.com/Cookiiieee/WSelector/issues</url>
   <icon type="stock">io.github.Cookiiieee.WSelector</icon>
+  <launchable type="desktop-id">io.github.Cookiiieee.WSelector.desktop</launchable>
   <description>
     <p>
       WSelector is a modern GTK4/libadwaita application that allows users to browse and set wallpapers from Wallhaven.cc.
