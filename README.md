@@ -47,16 +47,16 @@
 - Flatpak with Flathub repository configured
 - Internet connection for wallpaper downloads
 
-## 📦 Install from Bundle
+## 📦 Install from Flathub
 
-1. Download prerequisites:
+1. Manual Install:
    ```bash
-   wget https://github.com/Cookiiieee/WSelector/raw/main/bundle/WSelector-0.1.8.flatpak
+   flatpak install flathub io.github.Cookiiieee.WSelector
    ```
 
-2. Install the flatpak:
+2. Run the flatpak:
    ```bash
-   flatpak install ./WSelector-0.1.8.flatpak
+   flatpak run io.github.Cookiiieee.WSelector
    ```
 
 ## 🚀 Build from Source
