@@ -30,10 +30,38 @@
       <li>Dark/Light theme support</li>
     </ul>
   </description>
+  <branding>
+    <color type="primary" scheme_preference="light">#4c8de1</color>
+    <color type="primary" scheme_preference="dark">#2356a9</color>
+  </branding>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.0/screenshots/screenshot.png</image>
-      <caption>WSelector main window</caption>
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/main.png</image>
+      <caption>Main Window</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/light-theme.png</image>
+      <caption>Light Theme</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/category.png</image>
+      <caption>Category Filter</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/purity.png</image>
+      <caption>Purity Filter</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/downloads.png</image>
+      <caption>Download Viewer</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/preview.png</image>
+      <caption>Preview Wallpaper</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Cookiiieee/WSelector/v0.2.1/screenshots/download-prompt.png</image>
+      <caption>Download Dialog</caption>
     </screenshot>
   </screenshots>
   <categories>
@@ -42,6 +70,19 @@
     <category>Utility</category>
   </categories>
   <releases>
+      <release version="0.2.1" date="2025-06-14">
+      <description>
+        <p>Changes in this release:</p>
+        <ul>
+          <li>Updated SVG icon with transparent background</li>
+          <li>Fixed python3.12 crash on application close/exit</li>
+          <li>Updated Flatpak manifest</li>
+          <li>Updated AppStream metadata</li>
+          <li>Updated README.md</li>
+          <li>Updated screenshots</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2025-06-11">
       <description>
         <p>Changes in this release:</p>

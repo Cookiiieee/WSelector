@@ -2,15 +2,17 @@
 # WSelector
 
 <div align="center">
-  <img src="https://i.ibb.co/YB6XHXmB/icon-1748228995-512x512.png" width="128" height="128" alt="WSelector Icon">
+  <img src="https://raw.githubusercontent.com/Cookiiieee/WSelector/main/data/icons/hicolor/512x512/apps/io.github.Cookiiieee.WSelector.png" width="128" height="128" alt="WSelector Icon">
 </div>
 
-<div align="center">A modern GTK4/Adwaita application for browsing, downloading, and setting wallpapers from Wallhaven.cc website.</div>
+<div align="center">
+A modern GTK4/Adwaita application for browsing, downloading, and setting wallpapers from Wallhaven.cc website.
+</div>
 
 ##  Screenshot
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/Cookiiieee/WSelector/main/screenshots/screenshot.png">
+   <img src="https://raw.githubusercontent.com/Cookiiieee/WSelector/main/screenshots/main.png">
 </div>
 
 ## ✨ Features
@@ -138,16 +140,5 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 ## 🙏 Acknowledgments
 
 - [Wallhaven.cc](https://wallhaven.cc) for their amazing wallpaper collection.
-
-## 🚧 Work in Progress
-### App Memory Management (WIP)
-The application is currently being enhanced with an advanced memory management system (`app_memory`) that will provide:
-- Automatic memory usage optimization
-- Intelligent caching of frequently used wallpapers
-- Background memory cleanup of unused resources
-- Memory usage analytics and reporting
-- Configurable memory profiles for different system capabilities
-
-This feature is currently under active development and will be included in an upcoming release.
 
 [![Buy Me A Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=☕&slug=cookiiieee&button_colour=5F7FFF&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00&font_size=14&height=28&width=150)](https://www.buymeacoffee.com/cookiiieee)

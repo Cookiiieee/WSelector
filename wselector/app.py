@@ -19,7 +19,7 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Pango', '1.0')
-from gi.repository import GLib, Gtk, Gio, Adw, Gdk, GdkPixbuf, Pango
+from gi.repository import GLib, Gtk, Gio, Adw, Gdk, GdkPixbuf, Pango, GObject
 
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -3243,7 +3243,7 @@ class WSelectorApp(Adw.Application):
         info_box.append(name_label)
         
         # App version
-        version_label = Gtk.Label(label="Version v0.2.0", 
+        version_label = Gtk.Label(label="Version v0.2.1", 
         halign=Gtk.Align.START, 
         opacity=0.8)
         info_box.append(version_label)
@@ -3344,6 +3344,95 @@ class WSelectorApp(Adw.Application):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
         Gtk.Application.do_startup(self)
 
+    def do_shutdown(self):
+        """Handle application shutdown with proper cleanup."""
+        try:
+            logger.info("=== Starting application shutdown sequence ===")
+            
+            # 1. Clear any pending timeouts
+            logger.info("Step 1/4: Clearing pending timeouts...")
+            if hasattr(self, 'search_timeout_id') and self.search_timeout_id:
+                try:
+                    GLib.Source.remove(self.search_timeout_id)
+                    logger.debug("Removed search timeout")
+                except Exception as e:
+                    logger.warning(f"Error removing search timeout: {e}")
+                self.search_timeout_id = None
+
+            # 2. Shutdown executors
+            logger.info("Step 2/4: Shutting down executors...")
+            if hasattr(self, '_executor'):
+                try:
+                    self._executor.shutdown(wait=False, cancel_futures=True)
+                    logger.debug("Thread executor shutdown complete")
+                except Exception as e:
+                    logger.warning(f"Error shutting down executor: {e}")
+                self._executor = None
+
+            # 3. Clean up UI components
+            logger.info("Step 3/4: Cleaning up UI components...")
+            if hasattr(self, 'flowbox'):
+                try:
+                    # Remove scroll handler first
+                    if hasattr(self, '_scroll_handler_id') and self.scroll:
+                        try:
+                            adj = self.scroll.get_vadjustment()
+                            if adj:
+                                adj.handler_disconnect_by_func(self._on_scroll_changed)
+                        except Exception as e:
+                            logger.warning(f"Error disconnecting scroll handler: {e}")
+
+                    # Remove flowbox from parent
+                    if hasattr(self, 'scroll') and self.flowbox.get_parent() == self.scroll:
+                        self.scroll.set_child(None)
+                    
+                    # Clear flowbox
+                    child = self.flowbox.get_first_child()
+                    while child:
+                        next_child = child.get_next_sibling()
+                        try:
+                            # Remove all controllers
+                            for c in list(child.observe_controllers()):
+                                child.remove_controller(c)
+                            # Remove from parent
+                            child.unparent()
+                        except Exception as e:
+                            logger.warning(f"Error removing child: {e}")
+                        child = next_child
+                    
+                    logger.info(f"Removed all widgets from flowbox")
+                    self.flowbox = None
+                    
+                except Exception as e:
+                    logger.error(f"Error during UI cleanup: {e}")
+
+            # 4. Call parent's shutdown
+            logger.info("Step 4/4: Running GTK cleanup...")
+            try:
+                Gtk.Application.do_shutdown(self)
+                logger.info("GTK shutdown completed successfully")
+            except Exception as e:
+                logger.error(f"Error in GTK shutdown: {e}")
+                raise
+
+            logger.info("=== Shutdown completed successfully ===")
+            
+            # Force exit to prevent Python's interpreter from cleaning up GTK objects
+            import os
+            os._exit(0)
+
+        except Exception as e:
+            logger.critical(f"!!! CRITICAL ERROR DURING SHUTDOWN !!!: {e}", exc_info=True)
+            try:
+                # Try minimal cleanup
+                if hasattr(self, 'window'):
+                    self.window.destroy()
+            except:
+                pass
+            finally:
+                # Force exit on error
+                import os
+                os._exit(1)
 
 if __name__ == "__main__":
     app = WSelectorApp("io.github.Cookiiieee.WSelector", Gio.ApplicationFlags.FLAGS_NONE)
